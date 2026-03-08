@@ -1,6 +1,6 @@
 import enum
 from sqlalchemy import Column, Integer, String, Numeric, Enum, Time, Date, DateTime, ForeignKey
-from database import Base
+from db.database import Base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -26,9 +26,9 @@ class Appointment(Base):
     client_name = Column(String(100), nullable=False)
     client_phone = Column(String(20), nullable=False)
     client_email = Column(String(50), nullable=True)
-    service_id = Column(Integer, ForeignKey("nail_services.id"))
+    service_id = Column(Integer, ForeignKey("nail_services.id"), index=True)
     service = relationship("NailService")
-    appointment_date = Column(Date, nullable=False)
+    appointment_date = Column(Date, nullable=False, index=True)
     appointment_time = Column(Time, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     end_time = Column(Time, nullable=False)

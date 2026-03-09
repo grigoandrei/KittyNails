@@ -1,4 +1,3 @@
-from fastapi import APIRouter
 from sqlalchemy.orm import Session
 from db.models import NailService
 from models.service import NailServiceCreate, NailServiceUpdate

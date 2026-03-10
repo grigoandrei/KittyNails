@@ -24,11 +24,11 @@ def set_weekly_availability( db: Session, schedules: list[WeeklyAvailabilityCrea
             )
             db.add(new_entry)
             results.append(new_entry)
-        
-        db.commit()
-        for r in results:
-            db.refresh(r)
-        return results
+
+    db.commit()
+    for r in results:
+        db.refresh(r)
+    return results
 
 def get_availability_for_date(db: Session, target_date: date) -> WeeklyAvailabilityModel | None:
     day_of_week = target_date.weekday()

@@ -1,4 +1,4 @@
-from datetime import date, time, datetime, timedelta
+from datetime import date, datetime, timedelta
 from sqlalchemy.orm import Session
 from db.models import NailService, WeeklyAvailability, BlockedTime, Appointment, AppointmentStatus
 from models.appointment import AppointmentCreate

@@ -75,6 +75,30 @@ class AppointmentService:
         start_dt = datetime.combine(booking.appointment_date, booking.appointment_time)
         end_dt = start_dt + timedelta(minutes=service.duration_minutes)
 
+        # Verify the slot falls within working hours
+        availability = (
+            self.db.query(WeeklyAvailability)
+            .filter(WeeklyAvailability.day_of_week == booking.appointment_date.weekday())
+            .first()
+        )
+        if not availability:
+            raise ValueError("Selected time is outside working hours.")
+        if (booking.appointment_time < availability.start_time
+                or end_dt.time() > availability.end_time):
+            raise ValueError("Selected time is outside working hours.")
+
+        # Check for blocked times
+        blocked = (
+            self.db.query(BlockedTime)
+            .filter(BlockedTime.blocked_date == booking.appointment_date)
+            .all()
+        )
+        for b in blocked:
+            if b.start_time is None:
+                raise ValueError("Selected time is outside working hours.")
+            if (booking.appointment_time < b.end_time and end_dt.time() > b.start_time):
+                raise ValueError("Selected time is outside working hours.")
+
         conflict = (
             self.db.query(Appointment)
             .filter(

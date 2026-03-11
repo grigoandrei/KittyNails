@@ -66,13 +66,15 @@ VALID_SERVICE = {
     "price": 35.00,
 }
 
+AUTH_HEADERS = {"Authorization": f"Bearer {os.environ.get('OWNER_TOKEN', 'test-token')}"}
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
 
 def test_create_service():
     """POST /services/ creates a new service and returns it with an id."""
-    response = client.post("/services/", json=VALID_SERVICE)
+    response = client.post("/services/", json=VALID_SERVICE, headers=AUTH_HEADERS)
     assert response.status_code == 201
     data = response.json()
     assert data["name"] == VALID_SERVICE["name"]
@@ -88,8 +90,8 @@ def test_list_services():
     assert response.status_code == 200
     assert response.json() == []
 
-    client.post("/services/", json=VALID_SERVICE)
-    client.post("/services/", json={**VALID_SERVICE, "name": "Pedicure", "price": 40.00})
+    client.post("/services/", json=VALID_SERVICE, headers=AUTH_HEADERS)
+    client.post("/services/", json={**VALID_SERVICE, "name": "Pedicure", "price": 40.00}, headers=AUTH_HEADERS)
 
     response = client.get("/services/")
     assert response.status_code == 200
@@ -101,11 +103,11 @@ def test_list_services():
 
 def test_update_service():
     """PUT /services/{id} updates an existing service."""
-    create_resp = client.post("/services/", json=VALID_SERVICE)
+    create_resp = client.post("/services/", json=VALID_SERVICE, headers=AUTH_HEADERS)
     service_id = create_resp.json()["id"]
 
     update_payload = {"name": "Deluxe Gel Manicure", "price": 45.00}
-    response = client.put(f"/services/{service_id}", json=update_payload)
+    response = client.put(f"/services/{service_id}", json=update_payload, headers=AUTH_HEADERS)
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Deluxe Gel Manicure"
@@ -116,6 +118,6 @@ def test_update_service():
 
 def test_update_missing_service_returns_404():
     """PUT /services/{id} returns 404 when the service doesn't exist."""
-    response = client.put("/services/9999", json={"name": "Ghost Service"})
+    response = client.put("/services/9999", json={"name": "Ghost Service"}, headers=AUTH_HEADERS)
     assert response.status_code == 404
     assert response.json()["detail"] == "Service not found"

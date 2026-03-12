@@ -177,6 +177,13 @@ const BookingWizard: React.FC = () => {
       {/* Step 2: Date & Time Selection */}
       {state.step === 'datetime' && (
         <div>
+          <button
+            type="button"
+            onClick={() => setState(prev => ({ ...prev, step: 'service', selectedService: null, selectedDate: null, selectedTime: null }))}
+            style={{ marginBottom: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid #e91e8c', backgroundColor: '#fff', color: '#e91e8c', fontSize: 13, cursor: 'pointer' }}
+          >
+            ← Back to Services
+          </button>
           <h2 style={{ color: '#333', marginBottom: 12 }}>Pick a Date & Time</h2>
           {slotsError && <ErrorMessage message={slotsError} />}
           <div style={{ marginBottom: 16 }}>
@@ -209,6 +216,13 @@ const BookingWizard: React.FC = () => {
       {/* Step 3: Contact Info */}
       {state.step === 'contact' && (
         <div>
+          <button
+            type="button"
+            onClick={() => setState(prev => ({ ...prev, step: 'datetime', selectedTime: null }))}
+            style={{ marginBottom: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid #e91e8c', backgroundColor: '#fff', color: '#e91e8c', fontSize: 13, cursor: 'pointer' }}
+          >
+            ← Back to Date & Time
+          </button>
           <h2 style={{ color: '#333', marginBottom: 12 }}>Your Details</h2>
           {submitError && <ErrorMessage message={submitError} />}
           <form onSubmit={handleSubmit}>

@@ -27,7 +27,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onSelect }) => {
       )}
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#888' }}>
         <span>{service.duration_minutes} min</span>
-        <span style={{ fontWeight: 'bold', color: '#e91e8c' }}>€{service.price.toFixed(2)}</span>
+        <span style={{ fontWeight: 'bold', color: '#e91e8c' }}>€{Number(service.price).toFixed(2)}</span>
       </div>
     </div>
   );

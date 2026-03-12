@@ -147,3 +147,14 @@ class AppointmentService:
             .filter(Appointment.id == appointment_id)
             .first()
         )
+
+    def get_appointments_by_date(self, target_date: date) -> list[Appointment]:
+        return (
+            self.db.query(Appointment)
+            .filter(
+                Appointment.appointment_date == target_date,
+                Appointment.status == AppointmentStatus.CONFIRMED,
+            )
+            .order_by(Appointment.appointment_time)
+            .all()
+        )

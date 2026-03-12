@@ -1,22 +1,14 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthProvider';
 import { RequireAuth } from './auth/RequireAuth';
-import { BookingWizard } from './pages/BookingWizard';
-import { AppointmentLookup } from './pages/AppointmentLookup';
-import { OwnerLogin } from './pages/OwnerLogin';
-import { OwnerServices } from './pages/OwnerServices';
-import { OwnerAvailability } from './pages/OwnerAvailability';
-import { OwnerAppointments } from './pages/OwnerAppointments';
-
-function NotFound() {
-  return (
-    <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
-      <h1>404</h1>
-      <p>Page not found</p>
-      <Link to="/">Back to home</Link>
-    </div>
-  );
-}
+import BookingWizard from './pages/BookingWizard';
+import AppointmentLookup from './pages/AppointmentLookup';
+import OwnerLogin from './pages/OwnerLogin';
+import OwnerServices from './pages/OwnerServices';
+import OwnerAvailability from './pages/OwnerAvailability';
+import OwnerAppointments from './pages/OwnerAppointments';
+import NotFound from './pages/NotFound';
+import DashboardLayout from './components/DashboardLayout';
 
 function App() {
   return (
@@ -30,7 +22,9 @@ function App() {
             path="/owner/dashboard/services"
             element={
               <RequireAuth>
-                <OwnerServices />
+                <DashboardLayout>
+                  <OwnerServices />
+                </DashboardLayout>
               </RequireAuth>
             }
           />
@@ -38,7 +32,9 @@ function App() {
             path="/owner/dashboard/availability"
             element={
               <RequireAuth>
-                <OwnerAvailability />
+                <DashboardLayout>
+                  <OwnerAvailability />
+                </DashboardLayout>
               </RequireAuth>
             }
           />
@@ -46,7 +42,9 @@ function App() {
             path="/owner/dashboard/appointments"
             element={
               <RequireAuth>
-                <OwnerAppointments />
+                <DashboardLayout>
+                  <OwnerAppointments />
+                </DashboardLayout>
               </RequireAuth>
             }
           />

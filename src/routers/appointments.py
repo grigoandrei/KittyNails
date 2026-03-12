@@ -8,6 +8,11 @@ from datetime import date
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 
+@router.get("/", response_model=list[AppointmentResponse])
+def list_appointments_by_date(date: date, db: Session = Depends(get_db)):
+    service = AppointmentService(db)
+    return service.get_appointments_by_date(date)
+
 @router.get("/available", response_model=list[TimeSlot])
 def get_available_slots(date: date, service_id: int, db: Session = Depends(get_db)):
     service = AppointmentService(db)

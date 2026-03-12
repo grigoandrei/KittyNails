@@ -1,68 +1,169 @@
+/* ===== CSS Custom Properties — Soft Pink / Neutral Palette ===== */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  --color-primary: #e91e8c;
+  --color-primary-light: #f472b6;
+  --color-primary-bg: #fdf2f8;
+  --color-primary-border: #f0e0eb;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  --color-bg: #fffbfd;
+  --color-surface: #ffffff;
+  --color-text: #333333;
+  --color-text-muted: #666666;
+  --color-text-light: #888888;
+  --color-text-faint: #bbbbbb;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --color-error: #c0392b;
+  --color-error-bg: #fdedef;
+  --color-error-border: #f5c6cb;
+
+  --color-success: #16a34a;
+  --color-success-bg: #f0fdf4;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+
+  --font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-size-base: 16px;
+  --font-size-sm: 14px;
+  --font-size-xs: 13px;
+  --font-size-lg: 18px;
+
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+/* ===== Reset & Base ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
-a:hover {
-  color: #535bf2;
+
+html {
+  font-size: var(--font-size-base);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  color: var(--color-text);
+  background-color: var(--color-bg);
   min-width: 320px;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
   min-height: 100vh;
 }
 
+/* ===== Typography ===== */
+h1, h2, h3, h4 {
+  margin-top: 0;
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
 h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  font-size: 1.75rem;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
+h2 {
+  font-size: 1.35rem;
+}
+
+h3 {
+  font-size: 1.1rem;
+}
+
+p {
+  margin-top: 0;
+}
+
+/* ===== Links ===== */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: var(--color-primary-light);
+}
+
+/* ===== Form Elements ===== */
+input,
+select,
+textarea {
   font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(233, 30, 140, 0.12);
+}
+
+label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+/* ===== Buttons ===== */
+button {
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s, transform 0.1s;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ===== Spinner Animation ===== */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
-  a:hover {
-    color: #747bff;
+}
+
+/* ===== Responsive: 320px minimum ===== */
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.4rem;
   }
-  button {
-    background-color: #f9f9f9;
+
+  h2 {
+    font-size: 1.15rem;
   }
 }

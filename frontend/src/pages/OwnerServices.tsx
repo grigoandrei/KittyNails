@@ -153,7 +153,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ service, onUpdated }) => {
         <td style={cellStyle}>{service.name}</td>
         <td style={cellStyle}>{service.description ?? '—'}</td>
         <td style={{ ...cellStyle, textAlign: 'center' }}>{service.duration_minutes} min</td>
-        <td style={{ ...cellStyle, textAlign: 'right' }}>€{service.price.toFixed(2)}</td>
+        <td style={{ ...cellStyle, textAlign: 'right' }}>€{Number(service.price).toFixed(2)}</td>
         <td style={{ ...cellStyle, textAlign: 'center' }}>
           <button
             onClick={() => setEditing(true)}

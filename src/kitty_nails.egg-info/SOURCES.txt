@@ -1,0 +1,7 @@
+README.md
+pyproject.toml
+src/kitty_nails.egg-info/PKG-INFO
+src/kitty_nails.egg-info/SOURCES.txt
+src/kitty_nails.egg-info/dependency_links.txt
+src/kitty_nails.egg-info/requires.txt
+src/kitty_nails.egg-info/top_level.txt

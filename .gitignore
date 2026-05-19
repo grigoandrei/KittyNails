@@ -2,3 +2,8 @@
 .venv
 .env
 src/kitty_nails.egg-info
+.env
+.venv/
+__pycache__/
+pgdata/
+*.pyc

@@ -6,6 +6,7 @@ from enum import Enum
 from uuid import uuid4
 from src.database import Base
 from datetime import datetime, timezone
+from sqlalchemy import DateTime
 
 class Status(Enum):
     BOOKED = "BOOKED"
@@ -23,4 +24,4 @@ class Appointment(Base):
     start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     status: Mapped[Status] = mapped_column(SAEnum(Status), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

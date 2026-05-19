@@ -6,7 +6,6 @@ from enum import Enum
 from uuid import uuid4
 from src.database import Base
 from datetime import datetime, timezone
-from sqlalchemy import DateTime
 
 class Status(Enum):
     BOOKED = "BOOKED"

@@ -36,3 +36,11 @@ async def update_service(service_id: UUID, data: ServiceUpdate, db: AsyncSession
     await db.commit()
     await db.refresh(service)
     return service
+
+async def get_all_services(db: AsyncSession) -> list[Service]:
+    result = await db.execute(select(Service))
+    return result.scalars().all()
+
+async def get_active_services(db: AsyncSession) -> list[Service]:
+    result = await db.execute(select(Service).where(Service.is_active))
+    return result.scalars().all()

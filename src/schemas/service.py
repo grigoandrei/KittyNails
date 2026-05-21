@@ -11,6 +11,7 @@ class ServiceUpdate(BaseModel):
     name: str | None = None
     duration_minutes: int | None = None
     price: float | None = None
+    is_active: bool | None = None
 
 class ServiceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

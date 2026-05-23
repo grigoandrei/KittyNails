@@ -30,6 +30,7 @@ async def update(rule_id: UUID, data: AvailabilityRulesUpdate, db: AsyncSession 
     except ValueError as e:
         if "not exist" in str(e):
             raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
     return rule
 

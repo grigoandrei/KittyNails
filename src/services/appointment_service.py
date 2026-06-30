@@ -1,12 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.schemas.appointment import AppointmentCreate
 from src.models.appointment import Appointment
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from src.models.service import Service
 from src.models.availability_rules import AvailabilityRules
 from src.models.blocked_time import BlockedTime
-from datetime import timedelta
+from datetime import timedelta, date
 from src.models.appointment import Status
+from uuid import UUID
 
 async def create_appointment(data: AppointmentCreate, db: AsyncSession) -> Appointment:
     result = await db.execute(select(Service).where(Service.id == data.service_id))
@@ -66,6 +67,46 @@ async def create_appointment(data: AppointmentCreate, db: AsyncSession) -> Appoi
         status=Status.BOOKED,
     )
     db.add(appointment)
+    await db.commit()
+    await db.refresh(appointment)
+    return appointment
+
+async def list_appointments(
+    db: AsyncSession,
+    status: Status | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None
+) -> list[Appointment]:
+    query = select(Appointment)
+
+    filters = []
+
+    if status:
+        filters.append(Appointment.status == status)
+    if date_from:
+        filters.append(Appointment.start_time >= date_from)
+    if date_to:
+        filters.append(Appointment.end_time < date_to + timedelta(days=1))
+
+    if filters:
+        query = query.where(and_(*filters))
+
+    query = query.order_by(Appointment.start_time.desc())
+    result = await db.execute(query)
+    return result.scalars().all()
+
+async def update_appointment_status(
+    db: AsyncSession,
+    appointment_id: UUID,
+    new_status: Status,
+) -> Appointment:
+    result = await db.execute(select(Appointment).where(Appointment.id == appointment_id))
+    appointment = result.scalar_one_or_none()
+
+    if not appointment:
+        raise ValueError("Appointment not found!")
+    
+    appointment.status = new_status
     await db.commit()
     await db.refresh(appointment)
     return appointment

@@ -7,6 +7,9 @@ from src.routers.admin.blocked_time import router as blocked_time_router
 from src.routers.admin.appointment import router as admin_appointments_router
 from src.routers.slots import router as slots_router
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from src.limiter import limiter
 
 origins = [
     "http://localhost:5173",
@@ -14,6 +17,8 @@ origins = [
 ]
 
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

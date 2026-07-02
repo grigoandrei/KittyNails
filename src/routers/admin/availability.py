@@ -1,5 +1,5 @@
 from src.schemas.availability_rule import AvailabilityRulesCreate, AvailabilityRulesUpdate, AvailabilityRulesResponse
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.database import get_db
 from uuid import UUID
@@ -8,36 +8,18 @@ from src.auth import get_current_admin
 
 router = APIRouter(dependencies=[Depends(get_current_admin)])
 
-@router.post("/api/admin/availability-rules", response_model=AvailabilityRulesResponse,status_code=201)
+@router.post("/api/admin/availability-rules", response_model=AvailabilityRulesResponse, status_code=201)
 async def create(data: AvailabilityRulesCreate, db: AsyncSession = Depends(get_db)):
-    try:
-        rule = await create_availability_rule(data, db)
-    except ValueError as e:
-        if "before" in str(e) or "between" in str(e):
-            raise HTTPException(status_code=400, detail=str(e))
-        raise HTTPException(status_code=404, detail=str(e))
+    return await create_availability_rule(data, db)
 
-    return rule
-
-@router.get("/api/admin/availability-rules", response_model=list[AvailabilityRulesResponse], status_code=200)
+@router.get("/api/admin/availability-rules", response_model=list[AvailabilityRulesResponse])
 async def get_all(db: AsyncSession = Depends(get_db)):
-    result = await get_all_availability_rules(db)
-    return result
+    return await get_all_availability_rules(db)
 
-@router.put("/api/admin/availability-rules/{rule_id}", response_model=AvailabilityRulesResponse, status_code=200)
+@router.put("/api/admin/availability-rules/{rule_id}", response_model=AvailabilityRulesResponse)
 async def update(rule_id: UUID, data: AvailabilityRulesUpdate, db: AsyncSession = Depends(get_db)):
-    try:
-        rule = await update_availability_rules(rule_id, data, db)
-    except ValueError as e:
-        if "not exist" in str(e):
-            raise HTTPException(status_code=404, detail=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-
-    return rule
+    return await update_availability_rules(rule_id, data, db)
 
 @router.delete("/api/admin/availability-rules/{rule_id}", status_code=204)
 async def delete(rule_id: UUID, db: AsyncSession = Depends(get_db)):
-    try:
-        await delete_availability_rule(rule_id, db)
-    except ValueError as e:
-            raise HTTPException(status_code=404, detail=str(e))
+    await delete_availability_rule(rule_id, db)

@@ -7,6 +7,7 @@ from src.models.availability_rules import AvailabilityRules
 from src.models.blocked_time import BlockedTime
 from datetime import timedelta, date
 from src.models.appointment import Status
+from src.exceptions import NotFoundError, ConflictError, ValidationError
 from uuid import UUID
 
 async def create_appointment(data: AppointmentCreate, db: AsyncSession) -> Appointment:
@@ -14,7 +15,7 @@ async def create_appointment(data: AppointmentCreate, db: AsyncSession) -> Appoi
     service = result.scalar_one_or_none()
 
     if not service:
-        raise ValueError("Service not found!")
+        raise NotFoundError("Service not found!")
 
     end_time = data.start_time + timedelta(minutes=service.duration_minutes)
 
@@ -24,7 +25,7 @@ async def create_appointment(data: AppointmentCreate, db: AsyncSession) -> Appoi
     rules = result.scalars().all()
 
     if not rules:
-        raise ValueError("Salon is closed on this day!")
+        raise ValidationError("Salon is closed on this day!")
 
     appointment_start = data.start_time.time()
     appointment_end = end_time.time()
@@ -35,7 +36,7 @@ async def create_appointment(data: AppointmentCreate, db: AsyncSession) -> Appoi
     )
 
     if not is_within_hours:
-        raise ValueError("Appointment is outside salon working hours!")
+        raise ValidationError("Appointment is outside salon working hours!")
 
     blocked_query = select(BlockedTime).where(
         BlockedTime.start_time < end_time,
@@ -46,7 +47,7 @@ async def create_appointment(data: AppointmentCreate, db: AsyncSession) -> Appoi
     blocked = result.scalars().first()
 
     if blocked:
-        raise ValueError("This time slot is blocked!")
+        raise ConflictError("This time slot is blocked!")
 
     conflict_query = select(Appointment).where(
         Appointment.status == Status.BOOKED,
@@ -57,7 +58,7 @@ async def create_appointment(data: AppointmentCreate, db: AsyncSession) -> Appoi
     conflict = result.scalars().first()
 
     if conflict:
-        raise ValueError("Time slot is already booked!")
+        raise ConflictError("Time slot is already booked!")
 
     appointment = Appointment(
         service_id=data.service_id,
@@ -104,7 +105,7 @@ async def update_appointment_status(
     appointment = result.scalar_one_or_none()
 
     if not appointment:
-        raise ValueError("Appointment not found!")
+        raise NotFoundError("Appointment not found!")
     
     appointment.status = new_status
     await db.commit()

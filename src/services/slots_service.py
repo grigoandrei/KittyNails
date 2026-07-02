@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.service import Service
+from src.exceptions import NotFoundError
 from src.models.availability_rules import AvailabilityRules
 from src.models.blocked_time import BlockedTime
 from src.models.appointment import Appointment, Status
@@ -16,7 +17,7 @@ async def get_available_slots(
     result = await db.execute(select(Service).where(Service.id == service_id))
     service = result.scalar_one_or_none()
     if not service:
-        raise ValueError("Service not found!")
+        raise NotFoundError("Service not found!")
 
     duration = timedelta(minutes=service.duration_minutes)
 

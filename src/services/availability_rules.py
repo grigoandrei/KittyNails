@@ -2,15 +2,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.schemas.availability_rule import AvailabilityRulesCreate, AvailabilityRulesUpdate
 from src.models.availability_rules import AvailabilityRules
 from sqlalchemy import select
+from src.exceptions import NotFoundError, ValidationError
 from uuid import UUID
 
 async def create_availability_rule(data: AvailabilityRulesCreate, db: AsyncSession) -> AvailabilityRules:
 
     if data.start_time >= data.end_time:
-        raise ValueError("start_time must be before end_time")
+        raise ValidationError("start_time must be before end_time")
     
     if not (0 <= data.day_of_week <= 6):
-        raise ValueError("day_of_week must be between 0 and 6")
+        raise ValidationError("day_of_week must be between 0 and 6")
 
     availability_rule = AvailabilityRules(
         day_of_week=data.day_of_week,
@@ -31,7 +32,7 @@ async def update_availability_rules(rule_id: UUID, data: AvailabilityRulesUpdate
     rule = result.scalar_one_or_none()
 
     if not rule:
-        raise ValueError("Availability rule does not exist!")
+        raise NotFoundError("Availability rule does not exist!")
 
     update_data = data.model_dump(exclude_unset=True)
 
@@ -39,7 +40,7 @@ async def update_availability_rules(rule_id: UUID, data: AvailabilityRulesUpdate
         setattr(rule, key, value)
 
     if rule.start_time >= rule.end_time:
-        raise ValueError("start_time must be before end_time")
+        raise ValidationError("start_time must be before end_time")
 
     await db.commit()
     await db.refresh(rule)
@@ -50,7 +51,7 @@ async def delete_availability_rule(rule_id: UUID, db: AsyncSession):
     rule = result.scalar_one_or_none()
 
     if not rule:
-        raise ValueError("Availability rule does not exist!")
+        raise NotFoundError("Availability rule does not exist!")
 
     await db.delete(rule)
     await db.commit()

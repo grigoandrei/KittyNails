@@ -13,8 +13,8 @@ async def create(data: BlockedTimeCreate, db: AsyncSession = Depends(get_db)):
     return await create_blocked_time(data, db)
 
 @router.get("/api/admin/blocked-times", response_model=list[BlockedTimeResponse])
-async def get_all(db: AsyncSession = Depends(get_db)):
-    return await get_blocked_times(db)
+async def get_all(skip: int = 0, limit: int = 50, db: AsyncSession = Depends(get_db)):
+    return await get_blocked_times(db, skip=skip, limit=limit)
 
 @router.delete("/api/admin/blocked-times/{time_id}", status_code=204)
 async def delete(time_id: UUID, db: AsyncSession = Depends(get_db)):

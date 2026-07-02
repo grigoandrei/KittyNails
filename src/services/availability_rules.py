@@ -23,8 +23,8 @@ async def create_availability_rule(data: AvailabilityRulesCreate, db: AsyncSessi
     await db.refresh(availability_rule)
     return availability_rule
 
-async def get_all_availability_rules(db: AsyncSession) -> list[AvailabilityRules]:
-    result = await db.execute(select(AvailabilityRules))
+async def get_all_availability_rules(db: AsyncSession, skip: int = 0, limit: int = 50) -> list[AvailabilityRules]:
+    result = await db.execute(select(AvailabilityRules).offset(skip).limit(limit))
     return result.scalars().all()
 
 async def update_availability_rules(rule_id: UUID, data: AvailabilityRulesUpdate, db: AsyncSession) -> AvailabilityRules:

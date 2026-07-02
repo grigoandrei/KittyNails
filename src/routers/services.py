@@ -7,6 +7,5 @@ from src.database import get_db
 router = APIRouter()
 
 @router.get("/api/services", response_model=list[ServiceResponse])
-async def get_active(db: AsyncSession = Depends(get_db)):
-    result = await get_active_services(db)
-    return result
+async def get_active(skip: int = 0, limit: int = 50, db: AsyncSession = Depends(get_db)):
+    return await get_active_services(db, skip=skip, limit=limit)

@@ -15,9 +15,11 @@ async def get_appointment(
     status: Status | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    skip: int = 0,
+    limit: int = 50,
     db: AsyncSession = Depends(get_db)
 ):
-    return await list_appointments(db, status=status, date_from=date_from, date_to=date_to)
+    return await list_appointments(db, status=status, date_from=date_from, date_to=date_to, skip=skip, limit=limit)
 
 @router.patch("/{appointment_id}/cancel", response_model=AppointmentResponse)
 async def cancel_appointment(appointment_id: UUID, db: AsyncSession = Depends(get_db)):

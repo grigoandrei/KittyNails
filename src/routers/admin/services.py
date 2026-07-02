@@ -17,5 +17,5 @@ async def update(service_id: UUID, data: ServiceUpdate, db: AsyncSession = Depen
     return await update_service(service_id, data, db)
 
 @router.get("/api/admin/services", response_model=list[ServiceResponse])
-async def get_services(db: AsyncSession = Depends(get_db)):
-    return await get_all_services(db)
+async def get_services(skip: int = 0, limit: int = 50, db: AsyncSession = Depends(get_db)):
+    return await get_all_services(db, skip=skip, limit=limit)

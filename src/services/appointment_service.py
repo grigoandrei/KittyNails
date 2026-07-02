@@ -76,7 +76,9 @@ async def list_appointments(
     db: AsyncSession,
     status: Status | None = None,
     date_from: date | None = None,
-    date_to: date | None = None
+    date_to: date | None = None,
+    skip: int = 0,
+    limit: int = 50,
 ) -> list[Appointment]:
     query = select(Appointment)
 
@@ -92,7 +94,7 @@ async def list_appointments(
     if filters:
         query = query.where(and_(*filters))
 
-    query = query.order_by(Appointment.start_time.desc())
+    query = query.order_by(Appointment.start_time.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
 

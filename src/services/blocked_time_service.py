@@ -29,8 +29,8 @@ async def create_blocked_time(data: BlockedTimeCreate, db: AsyncSession) -> Bloc
     await db.refresh(blocked_time)
     return blocked_time
 
-async def get_blocked_times(db: AsyncSession) -> list[BlockedTime]:
-    result = await db.execute(select(BlockedTime))
+async def get_blocked_times(db: AsyncSession, skip: int = 0, limit: int = 50) -> list[BlockedTime]:
+    result = await db.execute(select(BlockedTime).offset(skip).limit(limit))
     return result.scalars().all()
 
 async def delete_blocked_time(time_id: UUID, db: AsyncSession):

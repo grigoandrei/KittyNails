@@ -38,10 +38,10 @@ async def update_service(service_id: UUID, data: ServiceUpdate, db: AsyncSession
     await db.refresh(service)
     return service
 
-async def get_all_services(db: AsyncSession) -> list[Service]:
-    result = await db.execute(select(Service))
+async def get_all_services(db: AsyncSession, skip: int = 0, limit: int = 50) -> list[Service]:
+    result = await db.execute(select(Service).offset(skip).limit(limit))
     return result.scalars().all()
 
-async def get_active_services(db: AsyncSession) -> list[Service]:
-    result = await db.execute(select(Service).where(Service.is_active))
+async def get_active_services(db: AsyncSession, skip: int = 0, limit: int = 50) -> list[Service]:
+    result = await db.execute(select(Service).where(Service.is_active).offset(skip).limit(limit))
     return result.scalars().all()

@@ -13,8 +13,8 @@ async def create(data: AvailabilityRulesCreate, db: AsyncSession = Depends(get_d
     return await create_availability_rule(data, db)
 
 @router.get("/api/admin/availability-rules", response_model=list[AvailabilityRulesResponse])
-async def get_all(db: AsyncSession = Depends(get_db)):
-    return await get_all_availability_rules(db)
+async def get_all(skip: int = 0, limit: int = 50, db: AsyncSession = Depends(get_db)):
+    return await get_all_availability_rules(db, skip=skip, limit=limit)
 
 @router.put("/api/admin/availability-rules/{rule_id}", response_model=AvailabilityRulesResponse)
 async def update(rule_id: UUID, data: AvailabilityRulesUpdate, db: AsyncSession = Depends(get_db)):

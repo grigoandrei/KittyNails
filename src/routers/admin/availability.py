@@ -4,8 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database import get_db
 from uuid import UUID
 from src.services.availability_rules import create_availability_rule, update_availability_rules, delete_availability_rule, get_all_availability_rules
+from src.auth import get_current_admin
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_admin)])
 
 @router.post("/api/admin/availability-rules", response_model=AvailabilityRulesResponse,status_code=201)
 async def create(data: AvailabilityRulesCreate, db: AsyncSession = Depends(get_db)):

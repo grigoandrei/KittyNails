@@ -4,10 +4,11 @@ from src.database import get_db
 from src.schemas.appointment import AppointmentResponse
 from src.services.appointment_service import list_appointments, update_appointment_status
 from src.models.appointment import Status
+from src.auth import get_current_admin
 from datetime import date
 from uuid import UUID
 
-router = APIRouter(prefix="/api/admin/appointments", tags=["admin-appointments"])
+router = APIRouter(prefix="/api/admin/appointments", tags=["admin-appointments"], dependencies=[Depends(get_current_admin)])
 
 @router.get("/", response_model=list[AppointmentResponse])
 async def get_appointment(

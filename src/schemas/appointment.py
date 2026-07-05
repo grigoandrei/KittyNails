@@ -9,7 +9,8 @@ class AppointmentCreate(BaseModel):
     @field_validator('start_time')
     @classmethod
     def is_in_the_future(cls, start_time: datetime) -> datetime:
-        if start_time <= datetime.now(tz=timezone.utc):
+        now = datetime.now(tz=start_time.tzinfo)
+        if start_time <= now:
             raise ValueError("Date cannot be in the past!")
         return start_time
 

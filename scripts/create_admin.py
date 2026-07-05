@@ -27,6 +27,8 @@ else:
 
 with open(env_path, "w") as f:
     f.writelines(lines)
+    if lines and not lines[-1].endswith("\n"):
+        f.write("\n")
     f.write(f"ADMIN_USERNAME={username}\n")
     f.write(f"ADMIN_PASSWORD_HASH={hashed}\n")
     f.write(f"JWT_SECRET={jwt_secret}\n")

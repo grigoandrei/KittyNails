@@ -31,8 +31,8 @@ async def get_available_slots(
     if not rules:
         return []
 
-    day_start = datetime.combine(target_date, time.min, tzinfo=timezone.utc)
-    day_end = datetime.combine(target_date, time.max, tzinfo=timezone.utc)
+    day_start = datetime.combine(target_date, time.min)
+    day_end = datetime.combine(target_date, time.max)
 
     result = await db.execute(
         select(Appointment).where(
@@ -51,23 +51,26 @@ async def get_available_slots(
     )
     blocked = result.scalars().all()
 
+    def to_naive(dt: datetime) -> datetime:
+        return dt.replace(tzinfo=None) if dt.tzinfo else dt
+
     available = []
     for rule in rules:
         slot_start_time = rule.start_time
         while True:
-            slot_start = datetime.combine(target_date, slot_start_time, tzinfo=timezone.utc)
+            slot_start = datetime.combine(target_date, slot_start_time)
             slot_end = slot_start + duration
 
             if slot_end.time() > rule.end_time:
                 break
 
             has_conflict = any(
-                slot_start < appt.end_time and slot_end > appt.start_time
+                slot_start < to_naive(appt.end_time) and slot_end > to_naive(appt.start_time)
                 for appt in booked
             )
 
             is_blocked = any(
-                slot_start < bt.end_time and slot_end > bt.start_time
+                slot_start < to_naive(bt.end_time) and slot_end > to_naive(bt.start_time)
                 for bt in blocked
             )
 

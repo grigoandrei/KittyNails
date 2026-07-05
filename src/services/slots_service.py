@@ -18,6 +18,8 @@ async def get_available_slots(
     service = result.scalar_one_or_none()
     if not service:
         raise NotFoundError("Service not found!")
+    if not service.is_active:
+        raise NotFoundError("Service is not available!")
 
     duration = timedelta(minutes=service.duration_minutes)
 

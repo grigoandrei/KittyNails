@@ -1,5 +1,5 @@
 from src.schemas.availability_rule import AvailabilityRulesCreate, AvailabilityRulesUpdate, AvailabilityRulesResponse
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.database import get_db
 from uuid import UUID
@@ -13,7 +13,7 @@ async def create(data: AvailabilityRulesCreate, db: AsyncSession = Depends(get_d
     return await create_availability_rule(data, db)
 
 @router.get("/api/admin/availability-rules", response_model=list[AvailabilityRulesResponse])
-async def get_all(skip: int = 0, limit: int = 50, db: AsyncSession = Depends(get_db)):
+async def get_all(skip: int = Query(default=0, ge=0), limit: int = Query(default=50, ge=1, le=100), db: AsyncSession = Depends(get_db)):
     return await get_all_availability_rules(db, skip=skip, limit=limit)
 
 @router.put("/api/admin/availability-rules/{rule_id}", response_model=AvailabilityRulesResponse)

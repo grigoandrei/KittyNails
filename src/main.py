@@ -14,6 +14,7 @@ from slowapi.errors import RateLimitExceeded
 from src.limiter import limiter
 from src.exceptions import NotFoundError, ConflictError, ValidationError
 from mangum import Mangum
+from src.middleware import LoggingMiddleware
 
 origins = [
     "http://localhost:5173",
@@ -38,6 +39,7 @@ async def conflict_handler(request: Request, exc: ConflictError):
 @app.exception_handler(ValidationError)
 async def validation_handler(request: Request, exc: ValidationError):
     return JSONResponse(status_code=400, content={"detail": str(exc)})
+app.add_middleware(LoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

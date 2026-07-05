@@ -15,8 +15,8 @@ async def get_appointment(
     status: Status | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
     db: AsyncSession = Depends(get_db)
 ):
     return await list_appointments(db, status=status, date_from=date_from, date_to=date_to, skip=skip, limit=limit)

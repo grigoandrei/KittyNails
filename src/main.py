@@ -13,6 +13,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from src.limiter import limiter
 from src.exceptions import NotFoundError, ConflictError, ValidationError
+from mangum import Mangum
 
 origins = [
     "http://localhost:5173",
@@ -56,3 +57,5 @@ app.include_router(admin_auth_router)
 @app.get("/")
 def health_check():
     return {"status": "ok"}
+
+handler = Mangum(app)

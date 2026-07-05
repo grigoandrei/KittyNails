@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
 from src.database import Base, get_db
+from src.auth import get_current_admin
 from src.config import settings
 from src.main import app
 
@@ -16,7 +17,12 @@ async def override_get_db():
         yield session
 
 
+def override_get_current_admin():
+    return "test-admin"
+
+
 app.dependency_overrides[get_db] = override_get_db
+app.dependency_overrides[get_current_admin] = override_get_current_admin
 
 
 @pytest.fixture(autouse=True)

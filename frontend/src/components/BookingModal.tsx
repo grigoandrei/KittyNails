@@ -2,27 +2,25 @@ import { useState, useEffect, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useForm } from "react-hook-form";
 import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, getDay, getDaysInMonth, isSameDay } from "date-fns";
-import { X, ChevronLeft, ChevronRight, Loader2, AlertCircle, Check, Clock, DollarSign } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Loader2, AlertCircle, Check, Clock, Upload, Sparkles, Info } from "lucide-react";
 import { toast } from "sonner";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
-  fetchServices,
+  analyzeNails,
   fetchAvailableDates,
   fetchSlots,
   createAppointment,
-  type Service,
+  type NailAnalysisResponse,
 } from "../api";
 
 function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
 }
 
-type Step = "service" | "datetime" | "info" | "review";
+type Step = "photo" | "estimate" | "datetime" | "confirm";
 
 interface ClientInfo {
-  firstName: string;
-  lastName: string;
   email: string;
   phone: string;
 }
@@ -33,10 +31,16 @@ interface BookingModalProps {
 }
 
 export function BookingModal({ open, onOpenChange }: BookingModalProps) {
-  const [step, setStep] = useState<Step>("service");
-  const [services, setServices] = useState<Service[]>([]);
-  const [servicesLoading, setServicesLoading] = useState(false);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [step, setStep] = useState<Step>("photo");
+
+  // Photo upload
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+
+  // AI estimate
+  const [analysis, setAnalysis] = useState<NailAnalysisResponse | null>(null);
 
   // Date/time state
   const [calendarMonth, setCalendarMonth] = useState(startOfMonth(new Date()));
@@ -60,14 +64,18 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
     getValues,
     reset: resetForm,
   } = useForm<ClientInfo>({
-    defaultValues: { firstName: "", lastName: "", email: "", phone: "" },
+    defaultValues: { email: "", phone: "" },
   });
 
   // Reset when modal opens/closes
   useEffect(() => {
     if (open) {
-      setStep("service");
-      setSelectedService(null);
+      setStep("photo");
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      setAnalyzing(false);
+      setAnalyzeError(null);
+      setAnalysis(null);
       setSelectedDate(null);
       setSelectedTime(null);
       setCalendarMonth(startOfMonth(new Date()));
@@ -75,62 +83,101 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
       setTimeSlots([]);
       setConfirmed(false);
       resetForm();
-      loadServices();
     }
   }, [open, resetForm]);
 
-  // Load services
-  async function loadServices() {
-    setServicesLoading(true);
+  // Clean up preview URL
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  // Photo handling
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5 MB");
+      return;
+    }
+
+    setSelectedFile(file);
+    setAnalyzeError(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(URL.createObjectURL(file));
+  }
+
+  async function handleAnalyze() {
+    if (!selectedFile) return;
+    setAnalyzing(true);
+    setAnalyzeError(null);
     try {
-      const data = await fetchServices();
-      setServices(data);
-    } catch {
-      toast.error("Failed to load services. Please try again.");
+      const result = await analyzeNails(selectedFile);
+      setAnalysis(result);
+      setStep("estimate");
+    } catch (err) {
+      setAnalyzeError(
+        err instanceof Error ? err.message : "Analysis failed. Please try again."
+      );
     } finally {
-      setServicesLoading(false);
+      setAnalyzing(false);
     }
   }
 
-  // Load available dates when service or month changes
+  // Load available dates when entering datetime step or month changes
   const loadAvailableDates = useCallback(async () => {
-    if (!selectedService) return;
+    if (!analysis) return;
     setDatesLoading(true);
     setDatesError(null);
     try {
       const year = calendarMonth.getFullYear();
       const month = calendarMonth.getMonth() + 1;
-      const dates = await fetchAvailableDates(selectedService.id, year, month);
+      const dates = await fetchAvailableDates(
+        analysis.nail_type_id,
+        analysis.design_tier_id,
+        year,
+        month
+      );
       setAvailableDates(dates);
     } catch {
       setDatesError("Failed to load available dates.");
     } finally {
       setDatesLoading(false);
     }
-  }, [selectedService, calendarMonth]);
+  }, [analysis, calendarMonth]);
 
   useEffect(() => {
-    if (step === "datetime" && selectedService) {
+    if (step === "datetime" && analysis) {
       loadAvailableDates();
     }
-  }, [step, selectedService, calendarMonth, loadAvailableDates]);
+  }, [step, analysis, calendarMonth, loadAvailableDates]);
 
   // Load time slots when date is selected
   const loadTimeSlots = useCallback(async () => {
-    if (!selectedService || !selectedDate) return;
+    if (!analysis || !selectedDate) return;
     setSlotsLoading(true);
     setSlotsError(null);
     setSelectedTime(null);
     try {
       const dateStr = format(selectedDate, "yyyy-MM-dd");
-      const slots = await fetchSlots(selectedService.id, dateStr);
+      const slots = await fetchSlots(
+        analysis.nail_type_id,
+        analysis.design_tier_id,
+        dateStr
+      );
       setTimeSlots(slots);
     } catch {
       setSlotsError("Failed to load time slots.");
     } finally {
       setSlotsLoading(false);
     }
-  }, [selectedService, selectedDate]);
+  }, [analysis, selectedDate]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -140,47 +187,9 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
 
   // Navigation
   function goBack() {
-    if (step === "datetime") setStep("service");
-    else if (step === "info") setStep("datetime");
-    else if (step === "review") setStep("info");
-  }
-
-  function selectService(service: Service) {
-    setSelectedService(service);
-    setSelectedDate(null);
-    setSelectedTime(null);
-    setTimeSlots([]);
-    setStep("datetime");
-  }
-
-  function proceedToInfo() {
-    if (!selectedTime) return;
-    setStep("info");
-  }
-
-  function onInfoSubmit() {
-    setStep("review");
-  }
-
-  async function confirmBooking() {
-    if (!selectedService || !selectedTime) return;
-    setSubmitting(true);
-    try {
-      const info = getValues();
-      await createAppointment({
-        service_id: selectedService.id,
-        client_email: info.email,
-        start_time: selectedTime,
-      });
-      setConfirmed(true);
-      toast.success("Appointment booked successfully!");
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to book appointment."
-      );
-    } finally {
-      setSubmitting(false);
-    }
+    if (step === "estimate") setStep("photo");
+    else if (step === "datetime") setStep("estimate");
+    else if (step === "confirm") setStep("datetime");
   }
 
   // Calendar helpers
@@ -209,64 +218,33 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
     return availableDates.includes(dateStr);
   }
 
-  function renderCalendar() {
-    const daysInMonth = getDaysInMonth(calendarMonth);
-    const firstDayOfWeek = getDay(startOfMonth(calendarMonth));
-    const days: (number | null)[] = [];
-
-    for (let i = 0; i < firstDayOfWeek; i++) {
-      days.push(null);
+  async function confirmBooking() {
+    if (!analysis || !selectedTime) return;
+    setSubmitting(true);
+    try {
+      const info = getValues();
+      await createAppointment({
+        nail_type_id: analysis.nail_type_id,
+        design_tier_id: analysis.design_tier_id,
+        client_email: info.email,
+        start_time: selectedTime,
+        ai_confidence: analysis.confidence,
+        ai_reasoning: analysis.reasoning,
+      });
+      setConfirmed(true);
+      toast.success("Appointment booked successfully!");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to book appointment."
+      );
+    } finally {
+      setSubmitting(false);
     }
-    for (let d = 1; d <= daysInMonth; d++) {
-      days.push(d);
-    }
-
-    return (
-      <div className="grid grid-cols-7 gap-1">
-        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-          <div
-            key={day}
-            className="text-center text-xs text-muted-foreground font-medium py-2"
-          >
-            {day}
-          </div>
-        ))}
-        {days.map((day, idx) => {
-          if (day === null) {
-            return <div key={`empty-${idx}`} />;
-          }
-          const available = isDateAvailable(day);
-          const dateObj = new Date(
-            calendarMonth.getFullYear(),
-            calendarMonth.getMonth(),
-            day
-          );
-          const isSelected = selectedDate && isSameDay(dateObj, selectedDate);
-
-          return (
-            <button
-              key={day}
-              disabled={!available}
-              onClick={() => setSelectedDate(dateObj)}
-              className={cn(
-                "w-full aspect-square rounded-lg text-sm flex items-center justify-center transition-colors",
-                available
-                  ? "hover:bg-primary/10 cursor-pointer"
-                  : "text-muted-foreground/40 cursor-not-allowed",
-                isSelected && "bg-primary text-white hover:bg-primary-dark"
-              )}
-            >
-              {day}
-            </button>
-          );
-        })}
-      </div>
-    );
   }
 
   // Step indicator
-  const steps: Step[] = ["service", "datetime", "info", "review"];
-  const stepLabels = ["Service", "Date & Time", "Info", "Confirm"];
+  const steps: Step[] = ["photo", "estimate", "datetime", "confirm"];
+  const stepLabels = ["Upload Photo", "Estimate", "Date & Time", "Confirm"];
   const currentStepIndex = steps.indexOf(step);
 
   return (
@@ -291,9 +269,9 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
           {/* Step indicator */}
           {!confirmed && (
             <div className="flex items-center gap-1 mb-6">
-              {steps.map((s, i) => (
+              {steps.map((_, i) => (
                 <div
-                  key={s}
+                  key={i}
                   className={cn(
                     "h-1 flex-1 rounded-full transition-colors",
                     i <= currentStepIndex ? "bg-primary" : "bg-border"
@@ -304,375 +282,532 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
           )}
 
           {/* Confirmed State */}
-          {confirmed && (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-8 h-8 text-success" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">You are all set!</h3>
-              <p className="text-muted-foreground text-sm mb-4">
-                A confirmation email will be sent to{" "}
-                <span className="font-medium text-foreground">
-                  {getValues().email}
-                </span>
-              </p>
-              <div className="bg-secondary rounded-xl p-4 text-left text-sm space-y-1">
-                <p>
-                  <span className="text-muted-foreground">Service:</span>{" "}
-                  {selectedService?.name}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Date & Time:</span>{" "}
-                  {selectedTime &&
-                    format(
-                      parseISO(selectedTime),
-                      "MMM d, yyyy 'at' h:mm a"
-                    )}
-                </p>
-              </div>
-              <button
-                onClick={() => onOpenChange(false)}
-                className="mt-6 bg-primary text-primary-foreground px-6 py-2.5 rounded-full text-sm font-medium hover:bg-primary-dark transition-colors"
-              >
-                Done
-              </button>
-            </div>
+          {confirmed && <ConfirmedView analysis={analysis} selectedTime={selectedTime} email={getValues().email} onClose={() => onOpenChange(false)} />}
+
+          {/* Step 1: Photo Upload */}
+          {!confirmed && step === "photo" && (
+            <PhotoStep
+              previewUrl={previewUrl}
+              selectedFile={selectedFile}
+              analyzing={analyzing}
+              analyzeError={analyzeError}
+              onFileSelect={handleFileSelect}
+              onAnalyze={handleAnalyze}
+            />
           )}
 
-          {/* Step 1: Service Selection */}
-          {!confirmed && step === "service" && (
-            <div>
-              {servicesLoading && (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                  <span className="ml-2 text-sm text-muted-foreground">
-                    Loading services...
-                  </span>
-                </div>
-              )}
-              {!servicesLoading && services.length === 0 && (
-                <p className="text-center text-muted-foreground py-12">
-                  No services available.
-                </p>
-              )}
-              {!servicesLoading && services.length > 0 && (
-                <div className="space-y-3">
-                  {services.map((service) => (
-                    <button
-                      key={service.id}
-                      onClick={() => selectService(service)}
-                      className="w-full text-left p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-primary/5 transition-colors"
-                    >
-                      <div className="font-medium">{service.name}</div>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          {service.duration_minutes} min
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <DollarSign className="w-3.5 h-3.5" />
-                          {service.price.toFixed(2)}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+          {/* Step 2: AI Estimate */}
+          {!confirmed && step === "estimate" && (
+            <EstimateStep analysis={analysis} onContinue={() => setStep("datetime")} onBack={goBack} />
           )}
 
-          {/* Step 2: Date & Time */}
+          {/* Step 3: Date & Time */}
           {!confirmed && step === "datetime" && (
-            <div>
-              {/* Calendar Header */}
-              <div className="flex items-center justify-between mb-4">
-                <button
-                  onClick={prevMonth}
-                  disabled={!canGoPrevMonth}
-                  className={cn(
-                    "p-1.5 rounded-lg transition-colors",
-                    canGoPrevMonth
-                      ? "hover:bg-secondary text-foreground"
-                      : "text-muted-foreground/40 cursor-not-allowed"
-                  )}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-sm font-medium">
-                  {format(calendarMonth, "MMMM yyyy")}
-                </span>
-                <button
-                  onClick={nextMonth}
-                  className="p-1.5 rounded-lg hover:bg-secondary text-foreground transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Calendar */}
-              {datesLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                  <span className="ml-2 text-sm text-muted-foreground">
-                    Loading dates...
-                  </span>
-                </div>
-              ) : datesError ? (
-                <div className="text-center py-8">
-                  <AlertCircle className="w-6 h-6 text-destructive mx-auto mb-2" />
-                  <p className="text-sm text-destructive mb-3">{datesError}</p>
-                  <button
-                    onClick={loadAvailableDates}
-                    className="text-sm text-primary hover:text-primary-dark underline underline-offset-4"
-                  >
-                    Retry
-                  </button>
-                </div>
-              ) : (
-                renderCalendar()
-              )}
-
-              {/* Time Slots */}
-              {selectedDate && (
-                <div className="mt-6 border-t border-border pt-4">
-                  <h4 className="text-sm font-medium mb-3">
-                    Available times for {format(selectedDate, "MMM d")}
-                  </h4>
-
-                  {slotsLoading && (
-                    <div className="flex items-center justify-center py-6">
-                      <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                      <span className="ml-2 text-sm text-muted-foreground">
-                        Loading times...
-                      </span>
-                    </div>
-                  )}
-
-                  {slotsError && (
-                    <div className="text-center py-4">
-                      <p className="text-sm text-destructive mb-2">{slotsError}</p>
-                      <button
-                        onClick={loadTimeSlots}
-                        className="text-sm text-primary hover:text-primary-dark underline underline-offset-4"
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  )}
-
-                  {!slotsLoading && !slotsError && timeSlots.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No slots available for this date.
-                    </p>
-                  )}
-
-                  {!slotsLoading && !slotsError && timeSlots.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
-                      {timeSlots.map((slot) => {
-                        const time = parseISO(slot);
-                        const isSelected = selectedTime === slot;
-                        return (
-                          <button
-                            key={slot}
-                            onClick={() => setSelectedTime(slot)}
-                            className={cn(
-                              "px-3 py-2 rounded-lg text-sm border transition-colors",
-                              isSelected
-                                ? "bg-primary text-white border-primary"
-                                : "border-border hover:border-primary/50 hover:bg-primary/5"
-                            )}
-                          >
-                            {format(time, "h:mm a")}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Navigation */}
-              <div className="flex justify-between mt-6 pt-4 border-t border-border">
-                <button
-                  onClick={goBack}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={proceedToInfo}
-                  disabled={!selectedTime}
-                  className={cn(
-                    "px-5 py-2 rounded-full text-sm font-medium transition-colors",
-                    selectedTime
-                      ? "bg-primary text-primary-foreground hover:bg-primary-dark"
-                      : "bg-border text-muted-foreground cursor-not-allowed"
-                  )}
-                >
-                  Continue
-                </button>
-              </div>
-            </div>
+            <DateTimeStep
+              calendarMonth={calendarMonth}
+              canGoPrevMonth={canGoPrevMonth}
+              datesLoading={datesLoading}
+              datesError={datesError}
+              selectedDate={selectedDate}
+              timeSlots={timeSlots}
+              slotsLoading={slotsLoading}
+              slotsError={slotsError}
+              selectedTime={selectedTime}
+              onPrevMonth={prevMonth}
+              onNextMonth={nextMonth}
+              onSelectTime={setSelectedTime}
+              onRetryDates={loadAvailableDates}
+              onRetrySlots={loadTimeSlots}
+              onContinue={() => setStep("confirm")}
+              onBack={goBack}
+              renderCalendar={() => renderCalendar(calendarMonth, selectedDate, isDateAvailable, setSelectedDate)}
+            />
           )}
 
-          {/* Step 3: Client Info */}
-          {!confirmed && step === "info" && (
-            <form onSubmit={handleSubmit(onInfoSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">
-                    First Name
-                  </label>
-                  <input
-                    {...register("firstName")}
-                    placeholder="Jane"
-                    className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">
-                    Last Name
-                  </label>
-                  <input
-                    {...register("lastName")}
-                    placeholder="Doe"
-                    className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1.5">
-                  Email <span className="text-destructive">*</span>
-                </label>
-                <input
-                  {...register("email", {
-                    required: "Email is required",
-                    pattern: {
-                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                      message: "Please enter a valid email",
-                    },
-                  })}
-                  type="email"
-                  placeholder="jane@example.com"
-                  className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                />
-                {errors.email && (
-                  <p className="text-xs text-destructive mt-1">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1.5">
-                  Phone
-                </label>
-                <input
-                  {...register("phone")}
-                  type="tel"
-                  placeholder="(555) 123-4567"
-                  className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                />
-              </div>
-
-              {/* Navigation */}
-              <div className="flex justify-between pt-4 border-t border-border">
-                <button
-                  type="button"
-                  onClick={goBack}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  className="bg-primary text-primary-foreground px-5 py-2 rounded-full text-sm font-medium hover:bg-primary-dark transition-colors"
-                >
-                  Continue
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Step 4: Review & Confirm */}
-          {!confirmed && step === "review" && (
-            <div>
-              <div className="bg-secondary rounded-xl p-4 space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Service</span>
-                  <span className="font-medium">{selectedService?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Duration</span>
-                  <span>{selectedService?.duration_minutes} min</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Price</span>
-                  <span className="font-medium">
-                    ${selectedService?.price.toFixed(2)}
-                  </span>
-                </div>
-                <div className="border-t border-border my-2" />
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Date & Time</span>
-                  <span>
-                    {selectedTime &&
-                      format(
-                        parseISO(selectedTime),
-                        "MMM d, yyyy 'at' h:mm a"
-                      )}
-                  </span>
-                </div>
-                <div className="border-t border-border my-2" />
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Email</span>
-                  <span>{getValues().email}</span>
-                </div>
-                {getValues().firstName && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Name</span>
-                    <span>
-                      {getValues().firstName} {getValues().lastName}
-                    </span>
-                  </div>
-                )}
-                {getValues().phone && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Phone</span>
-                    <span>{getValues().phone}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Navigation */}
-              <div className="flex justify-between mt-6 pt-4 border-t border-border">
-                <button
-                  onClick={goBack}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={confirmBooking}
-                  disabled={submitting}
-                  className={cn(
-                    "px-5 py-2.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2",
-                    submitting
-                      ? "bg-border text-muted-foreground cursor-not-allowed"
-                      : "bg-primary text-primary-foreground hover:bg-primary-dark"
-                  )}
-                >
-                  {submitting && (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  )}
-                  {submitting ? "Booking..." : "Confirm Booking"}
-                </button>
-              </div>
-            </div>
+          {/* Step 4: Confirm */}
+          {!confirmed && step === "confirm" && (
+            <ConfirmStep
+              analysis={analysis}
+              selectedTime={selectedTime}
+              submitting={submitting}
+              register={register}
+              errors={errors}
+              onSubmit={handleSubmit(confirmBooking)}
+              onBack={goBack}
+            />
           )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+// --- Sub-components ---
+
+function renderCalendar(
+  calendarMonth: Date,
+  selectedDate: Date | null,
+  isDateAvailable: (day: number) => boolean,
+  setSelectedDate: (d: Date) => void
+) {
+  const daysInMonth = getDaysInMonth(calendarMonth);
+  const firstDayOfWeek = getDay(startOfMonth(calendarMonth));
+  const days: (number | null)[] = [];
+
+  for (let i = 0; i < firstDayOfWeek; i++) days.push(null);
+  for (let d = 1; d <= daysInMonth; d++) days.push(d);
+
+  return (
+    <div className="grid grid-cols-7 gap-1">
+      {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+        <div key={day} className="text-center text-xs text-muted-foreground font-medium py-2">
+          {day}
+        </div>
+      ))}
+      {days.map((day, idx) => {
+        if (day === null) return <div key={`empty-${idx}`} />;
+        const available = isDateAvailable(day);
+        const dateObj = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
+        const isSelected = selectedDate && isSameDay(dateObj, selectedDate);
+
+        return (
+          <button
+            key={day}
+            disabled={!available}
+            onClick={() => setSelectedDate(dateObj)}
+            className={cn(
+              "w-full aspect-square rounded-lg text-sm flex items-center justify-center transition-colors",
+              available ? "hover:bg-primary/10 cursor-pointer" : "text-muted-foreground/40 cursor-not-allowed",
+              isSelected && "bg-primary text-white hover:bg-primary-dark"
+            )}
+          >
+            {day}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ConfirmedView({ analysis, selectedTime, email, onClose }: {
+  analysis: NailAnalysisResponse | null;
+  selectedTime: string | null;
+  email: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="text-center py-8">
+      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <Check className="w-8 h-8 text-green-600" />
+      </div>
+      <h3 className="font-semibold text-lg mb-2">You are all set!</h3>
+      <p className="text-muted-foreground text-sm mb-4">
+        A confirmation email will be sent to{" "}
+        <span className="font-medium text-foreground">{email}</span>
+      </p>
+      <div className="bg-secondary rounded-xl p-4 text-left text-sm space-y-1">
+        <p>
+          <span className="text-muted-foreground">Service:</span>{" "}
+          {analysis?.nail_type} + {analysis?.design_tier}
+        </p>
+        <p>
+          <span className="text-muted-foreground">Price:</span>{" "}
+          €{analysis?.estimated_price.toFixed(2)}
+        </p>
+        <p>
+          <span className="text-muted-foreground">Date & Time:</span>{" "}
+          {selectedTime && format(parseISO(selectedTime), "MMM d, yyyy 'at' h:mm a")}
+        </p>
+      </div>
+      <button
+        onClick={onClose}
+        className="mt-6 bg-primary text-primary-foreground px-6 py-2.5 rounded-full text-sm font-medium hover:bg-primary-dark transition-colors cursor-pointer"
+      >
+        Done
+      </button>
+    </div>
+  );
+}
+
+function PhotoStep({ previewUrl, selectedFile, analyzing, analyzeError, onFileSelect, onAnalyze }: {
+  previewUrl: string | null;
+  selectedFile: File | null;
+  analyzing: boolean;
+  analyzeError: string | null;
+  onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onAnalyze: () => void;
+}) {
+  return (
+    <div>
+      <div className="text-center">
+        <div className="border-2 border-dashed border-border rounded-xl p-8 hover:border-primary/50 transition-colors">
+          {previewUrl ? (
+            <div className="space-y-4">
+              <img
+                src={previewUrl}
+                alt="Nail photo preview"
+                className="max-h-48 mx-auto rounded-lg object-cover"
+              />
+              <p className="text-sm text-muted-foreground">{selectedFile?.name}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Upload className="w-10 h-10 text-muted-foreground mx-auto" />
+              <p className="text-sm text-muted-foreground">
+                Upload a photo of your nails or a reference design
+              </p>
+              <p className="text-xs text-muted-foreground">
+                JPG, PNG, GIF or WebP · Max 5 MB
+              </p>
+            </div>
+          )}
+          <label className="mt-4 inline-block cursor-pointer">
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={onFileSelect}
+              className="hidden"
+            />
+            <span className="px-4 py-2 bg-secondary text-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors inline-block">
+              {previewUrl ? "Choose Different Photo" : "Select Photo"}
+            </span>
+          </label>
+        </div>
+
+        {analyzeError && (
+          <div className="mt-4 flex items-center gap-2 text-sm text-destructive justify-center">
+            <AlertCircle className="w-4 h-4" />
+            <span>{analyzeError}</span>
+          </div>
+        )}
+
+        <button
+          onClick={onAnalyze}
+          disabled={!selectedFile || analyzing}
+          className={cn(
+            "mt-6 px-6 py-2.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2 mx-auto cursor-pointer",
+            selectedFile && !analyzing
+              ? "bg-primary text-primary-foreground hover:bg-primary-dark"
+              : "bg-border text-muted-foreground cursor-not-allowed"
+          )}
+        >
+          {analyzing && <Loader2 className="w-4 h-4 animate-spin" />}
+          {analyzing ? "Analyzing..." : "Get AI Estimate"}
+          {!analyzing && <Sparkles className="w-4 h-4" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EstimateStep({ analysis, onContinue, onBack }: {
+  analysis: NailAnalysisResponse | null;
+  onContinue: () => void;
+  onBack: () => void;
+}) {
+  if (!analysis) return null;
+
+  const confidenceColor =
+    analysis.confidence === "high"
+      ? "bg-green-100 text-green-700"
+      : analysis.confidence === "medium"
+        ? "bg-yellow-100 text-yellow-700"
+        : "bg-red-100 text-red-700";
+
+  return (
+    <div>
+      {/* Estimate card */}
+      <div className="bg-secondary rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="font-semibold">AI Estimate</h4>
+          <span className={cn("text-xs px-2 py-1 rounded-full font-medium capitalize", confidenceColor)}>
+            {analysis.confidence} confidence
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <span className="text-muted-foreground">Nail Type</span>
+            <p className="font-medium">{analysis.nail_type}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Design Tier</span>
+            <p className="font-medium">{analysis.design_tier}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Estimated Price</span>
+            <p className="font-medium text-lg">€{analysis.estimated_price.toFixed(2)}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Duration</span>
+            <p className="font-medium flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              {analysis.estimated_duration_minutes} min
+            </p>
+          </div>
+        </div>
+
+        <p className="text-sm text-muted-foreground italic">
+          "{analysis.reasoning}"
+        </p>
+      </div>
+
+      {/* Disclaimer */}
+      <div className="mt-4 flex items-start gap-2 text-xs text-muted-foreground bg-blue-50 rounded-lg p-3">
+        <Info className="w-4 h-4 mt-0.5 shrink-0 text-blue-500" />
+        <span>
+          This is an AI-generated estimate. The final price may vary based on the actual consultation with your nail artist.
+        </span>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex justify-between mt-6 pt-4 border-t border-border">
+        <button
+          onClick={onBack}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          Back
+        </button>
+        <button
+          onClick={onContinue}
+          className="bg-primary text-primary-foreground px-5 py-2 rounded-full text-sm font-medium hover:bg-primary-dark transition-colors cursor-pointer"
+        >
+          Choose Date & Time
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DateTimeStep({ calendarMonth, canGoPrevMonth, datesLoading, datesError, selectedDate, timeSlots, slotsLoading, slotsError, selectedTime, onPrevMonth, onNextMonth, onSelectTime, onRetryDates, onRetrySlots, onContinue, onBack, renderCalendar }: {
+  calendarMonth: Date;
+  canGoPrevMonth: boolean;
+  datesLoading: boolean;
+  datesError: string | null;
+  selectedDate: Date | null;
+  timeSlots: string[];
+  slotsLoading: boolean;
+  slotsError: string | null;
+  selectedTime: string | null;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
+  onSelectTime: (t: string) => void;
+  onRetryDates: () => void;
+  onRetrySlots: () => void;
+  onContinue: () => void;
+  onBack: () => void;
+  renderCalendar: () => React.ReactNode;
+}) {
+  return (
+    <div>
+      {/* Calendar Header */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={onPrevMonth}
+          disabled={!canGoPrevMonth}
+          className={cn(
+            "p-1.5 rounded-lg transition-colors cursor-pointer",
+            canGoPrevMonth ? "hover:bg-secondary text-foreground" : "text-muted-foreground/40 cursor-not-allowed"
+          )}
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-sm font-medium">
+          {format(calendarMonth, "MMMM yyyy")}
+        </span>
+        <button
+          onClick={onNextMonth}
+          className="p-1.5 rounded-lg hover:bg-secondary text-foreground transition-colors cursor-pointer"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Calendar */}
+      {datesLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-5 h-5 text-primary animate-spin" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading dates...</span>
+        </div>
+      ) : datesError ? (
+        <div className="text-center py-8">
+          <AlertCircle className="w-6 h-6 text-destructive mx-auto mb-2" />
+          <p className="text-sm text-destructive mb-3">{datesError}</p>
+          <button onClick={onRetryDates} className="text-sm text-primary hover:text-primary-dark underline underline-offset-4 cursor-pointer">
+            Retry
+          </button>
+        </div>
+      ) : (
+        renderCalendar()
+      )}
+
+      {/* Time Slots */}
+      {selectedDate && (
+        <div className="mt-6 border-t border-border pt-4">
+          <h4 className="text-sm font-medium mb-3">
+            Available times for {format(selectedDate, "MMM d")}
+          </h4>
+
+          {slotsLoading && (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-4 h-4 text-primary animate-spin" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading times...</span>
+            </div>
+          )}
+
+          {slotsError && (
+            <div className="text-center py-4">
+              <p className="text-sm text-destructive mb-2">{slotsError}</p>
+              <button onClick={onRetrySlots} className="text-sm text-primary hover:text-primary-dark underline underline-offset-4 cursor-pointer">
+                Retry
+              </button>
+            </div>
+          )}
+
+          {!slotsLoading && !slotsError && timeSlots.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No slots available for this date.
+            </p>
+          )}
+
+          {!slotsLoading && !slotsError && timeSlots.length > 0 && (
+            <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+              {timeSlots.map((slot) => {
+                const time = parseISO(slot);
+                const isSelected = selectedTime === slot;
+                return (
+                  <button
+                    key={slot}
+                    onClick={() => onSelectTime(slot)}
+                    className={cn(
+                      "px-3 py-2 rounded-lg text-sm border transition-colors cursor-pointer",
+                      isSelected
+                        ? "bg-primary text-white border-primary"
+                        : "border-border hover:border-primary/50 hover:bg-primary/5"
+                    )}
+                  >
+                    {format(time, "h:mm a")}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div className="flex justify-between mt-6 pt-4 border-t border-border">
+        <button onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+          Back
+        </button>
+        <button
+          onClick={onContinue}
+          disabled={!selectedTime}
+          className={cn(
+            "px-5 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer",
+            selectedTime
+              ? "bg-primary text-primary-foreground hover:bg-primary-dark"
+              : "bg-border text-muted-foreground cursor-not-allowed"
+          )}
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmStep({ analysis, selectedTime, submitting, register, errors, onSubmit, onBack }: {
+  analysis: NailAnalysisResponse | null;
+  selectedTime: string | null;
+  submitting: boolean;
+  register: ReturnType<typeof useForm<ClientInfo>>["register"];
+  errors: ReturnType<typeof useForm<ClientInfo>>["formState"]["errors"];
+  onSubmit: (e: React.FormEvent) => void;
+  onBack: () => void;
+}) {
+  return (
+    <form onSubmit={onSubmit}>
+      {/* Booking summary */}
+      <div className="bg-secondary rounded-xl p-4 space-y-2 text-sm mb-6">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Service</span>
+          <span className="font-medium">{analysis?.nail_type} + {analysis?.design_tier}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Duration</span>
+          <span>{analysis?.estimated_duration_minutes} min</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Price</span>
+          <span className="font-medium">€{analysis?.estimated_price.toFixed(2)}</span>
+        </div>
+        <div className="border-t border-border my-2" />
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Date & Time</span>
+          <span>
+            {selectedTime && format(parseISO(selectedTime), "MMM d, yyyy 'at' h:mm a")}
+          </span>
+        </div>
+      </div>
+
+      {/* Client info */}
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1.5">
+            Email <span className="text-destructive">*</span>
+          </label>
+          <input
+            {...register("email", {
+              required: "Email is required",
+              pattern: {
+                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                message: "Please enter a valid email",
+              },
+            })}
+            type="email"
+            placeholder="jane@example.com"
+            className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+          />
+          {errors.email && (
+            <p className="text-xs text-destructive mt-1">{errors.email.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1.5">Phone</label>
+          <input
+            {...register("phone")}
+            type="tel"
+            placeholder="+49 123 456 7890"
+            className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+          />
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex justify-between mt-6 pt-4 border-t border-border">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          Back
+        </button>
+        <button
+          type="submit"
+          disabled={submitting}
+          className={cn(
+            "px-5 py-2.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer",
+            submitting
+              ? "bg-border text-muted-foreground cursor-not-allowed"
+              : "bg-primary text-primary-foreground hover:bg-primary-dark"
+          )}
+        >
+          {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+          {submitting ? "Booking..." : "Confirm Booking"}
+        </button>
+      </div>
+    </form>
   );
 }

@@ -12,7 +12,8 @@ import { AuthProvider } from "./admin/AuthContext";
 import { AdminLayout } from "./admin/AdminLayout";
 import { LoginPage } from "./admin/LoginPage";
 import { DashboardPage } from "./admin/DashboardPage";
-import { ServicesPage } from "./admin/ServicesPage";
+import { NailTypesPage } from "./admin/NailTypesPage";
+import { DesignTiersPage } from "./admin/DesignTiersPage";
 import { AvailabilityPage } from "./admin/AvailabilityPage";
 import { BlockedTimesPage } from "./admin/BlockedTimesPage";
 import { AppointmentsPage } from "./admin/AppointmentsPage";
@@ -45,7 +46,8 @@ export default function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="services" element={<ServicesPage />} />
+          <Route path="nail-types" element={<NailTypesPage />} />
+          <Route path="design-tiers" element={<DesignTiersPage />} />
           <Route path="availability" element={<AvailabilityPage />} />
           <Route path="blocked-times" element={<BlockedTimesPage />} />
           <Route path="appointments" element={<AppointmentsPage />} />

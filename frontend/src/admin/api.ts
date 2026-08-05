@@ -58,49 +58,104 @@ export async function login(
   return response.json();
 }
 
-// Services
-export interface AdminService {
+// Nail Types
+export interface NailType {
   id: string;
   name: string;
   duration_minutes: number;
   price: number;
+  sort_order: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export async function fetchAdminServices(
+export async function fetchNailTypes(
   skip = 0,
   limit = 50
-): Promise<AdminService[]> {
+): Promise<NailType[]> {
   const res = await adminFetch(
-    `/api/admin/services?skip=${skip}&limit=${limit}`
+    `/api/admin/nail-types?skip=${skip}&limit=${limit}`
   );
   return res.json();
 }
 
-export async function createService(data: {
+export async function createNailType(data: {
   name: string;
   duration_minutes: number;
   price: number;
-}): Promise<AdminService> {
-  const res = await adminFetch("/api/admin/services", {
+  sort_order?: number;
+}): Promise<NailType> {
+  const res = await adminFetch("/api/admin/nail-types", {
     method: "POST",
     body: JSON.stringify(data),
   });
   return res.json();
 }
 
-export async function updateService(
+export async function updateNailType(
   id: string,
   data: Partial<{
     name: string;
     duration_minutes: number;
     price: number;
+    sort_order: number;
     is_active: boolean;
   }>
-): Promise<AdminService> {
-  const res = await adminFetch(`/api/admin/services/${id}`, {
+): Promise<NailType> {
+  const res = await adminFetch(`/api/admin/nail-types/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+// Design Tiers
+export interface DesignTier {
+  id: string;
+  name: string;
+  duration_minutes: number;
+  price: number;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchDesignTiers(
+  skip = 0,
+  limit = 50
+): Promise<DesignTier[]> {
+  const res = await adminFetch(
+    `/api/admin/design-tiers?skip=${skip}&limit=${limit}`
+  );
+  return res.json();
+}
+
+export async function createDesignTier(data: {
+  name: string;
+  duration_minutes: number;
+  price: number;
+  sort_order?: number;
+}): Promise<DesignTier> {
+  const res = await adminFetch("/api/admin/design-tiers", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function updateDesignTier(
+  id: string,
+  data: Partial<{
+    name: string;
+    duration_minutes: number;
+    price: number;
+    sort_order: number;
+    is_active: boolean;
+  }>
+): Promise<DesignTier> {
+  const res = await adminFetch(`/api/admin/design-tiers/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
   });
@@ -181,12 +236,13 @@ export async function deleteBlockedTime(id: string): Promise<void> {
 // Appointments
 export interface AdminAppointment {
   id: string;
-  service_id: string;
+  nail_type_id: string;
+  design_tier_id: string;
   client_email: string;
   start_time: string;
   status: string;
+  quoted_price: number;
   created_at: string;
-  service?: AdminService;
 }
 
 export async function fetchAdminAppointments(params: {

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, Request, UploadFile, File
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.database import get_db
-from src.schemas.nail_analysis import NailAnalysisResponse
-from src.services.nail_analysis_service import analyze_nails, SUPPORTED_MEDIA_TYPES
 from src.exceptions import ValidationError
 from src.limiter import limiter
+from src.schemas.nail_analysis import NailAnalysisResponse
+from src.services.nail_analysis_service import SUPPORTED_MEDIA_TYPES, analyze_nails
 
 router = APIRouter()
 

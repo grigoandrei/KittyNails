@@ -38,13 +38,16 @@ async def test_admin_endpoint_without_token():
     overrides = test_app.dependency_overrides.copy()
     test_app.dependency_overrides.pop(get_current_admin, None)
 
-    transport = ASGITransport(app=test_app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.get("/api/admin/services")
-        assert response.status_code == 403
-
-    # Restore overrides
-    test_app.dependency_overrides = overrides
+    try:
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            response = await ac.get("/api/admin/nail-types")
+            # HTTPBearer returns 401 "Not authenticated" when no credentials are sent.
+            assert response.status_code == 401
+    finally:
+        # Always restore so a failed assertion here can't leak an unauthenticated
+        # app into the rest of the session.
+        test_app.dependency_overrides = overrides
 
 
 async def test_admin_endpoint_with_valid_token():
@@ -53,16 +56,17 @@ async def test_admin_endpoint_with_valid_token():
     overrides = test_app.dependency_overrides.copy()
     test_app.dependency_overrides.pop(get_current_admin, None)
 
-    token = create_access_token({"sub": "admin"})
-    transport = ASGITransport(app=test_app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.get(
-            "/api/admin/services",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert response.status_code == 200
-
-    test_app.dependency_overrides = overrides
+    try:
+        token = create_access_token({"sub": "admin"})
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            response = await ac.get(
+                "/api/admin/nail-types",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert response.status_code == 200
+    finally:
+        test_app.dependency_overrides = overrides
 
 
 async def test_admin_endpoint_with_invalid_token():
@@ -71,12 +75,13 @@ async def test_admin_endpoint_with_invalid_token():
     overrides = test_app.dependency_overrides.copy()
     test_app.dependency_overrides.pop(get_current_admin, None)
 
-    transport = ASGITransport(app=test_app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.get(
-            "/api/admin/services",
-            headers={"Authorization": "Bearer invalid.token.here"},
-        )
-        assert response.status_code == 401
-
-    test_app.dependency_overrides = overrides
+    try:
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            response = await ac.get(
+                "/api/admin/nail-types",
+                headers={"Authorization": "Bearer invalid.token.here"},
+            )
+            assert response.status_code == 401
+    finally:
+        test_app.dependency_overrides = overrides

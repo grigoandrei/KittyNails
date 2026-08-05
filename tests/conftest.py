@@ -7,6 +7,12 @@ from src.database import Base, get_db
 from src.auth import get_current_admin
 from src.config import settings
 from src.main import app
+from src.limiter import limiter
+
+# Rate limits protect the real API but make the suite non-deterministic (a
+# session issues more booking/analysis POSTs than the hourly caps allow, all
+# from the same test client IP). Disable enforcement for tests.
+limiter.enabled = False
 
 engine_test = create_async_engine(settings.TEST_DATABASE_URL, poolclass=NullPool)
 async_session_test = async_sessionmaker(engine_test, expire_on_commit=False)

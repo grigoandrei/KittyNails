@@ -2,7 +2,8 @@ import { NavLink, Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import {
   LayoutDashboard,
-  Scissors,
+  Sparkles,
+  Palette,
   Clock,
   CalendarOff,
   CalendarCheck,
@@ -11,7 +12,8 @@ import {
 
 const navItems = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/admin/services", label: "Services", icon: Scissors },
+  { to: "/admin/nail-types", label: "Nail Types", icon: Sparkles },
+  { to: "/admin/design-tiers", label: "Design Tiers", icon: Palette },
   { to: "/admin/availability", label: "Availability", icon: Clock },
   { to: "/admin/blocked-times", label: "Blocked Times", icon: CalendarOff },
   { to: "/admin/appointments", label: "Appointments", icon: CalendarCheck },

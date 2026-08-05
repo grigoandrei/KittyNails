@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
-import { fetchServices, type Service } from "../api";
+
+interface NailType {
+  id: string;
+  name: string;
+}
 
 export function Footer() {
-  const [services, setServices] = useState<Service[]>([]);
+  const [nailTypes, setNailTypes] = useState<NailType[]>([]);
 
   useEffect(() => {
-    fetchServices()
-      .then(setServices)
+    fetch("/api/nail-types")
+      .then((r) => r.json())
+      .then(setNailTypes)
       .catch(() => {
         /* silently fail in footer */
       });
@@ -37,10 +42,10 @@ export function Footer() {
               Services
             </h4>
             <ul className="space-y-2">
-              {services.length > 0 ? (
-                services.map((service) => (
-                  <li key={service.id}>
-                    <span className="text-sm text-white/60">{service.name}</span>
+              {nailTypes.length > 0 ? (
+                nailTypes.map((nt) => (
+                  <li key={nt.id}>
+                    <span className="text-sm text-white/60">{nt.name}</span>
                   </li>
                 ))
               ) : (

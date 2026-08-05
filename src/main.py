@@ -1,8 +1,11 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from src.routers.appointments import router as appointments_router
-from src.routers.admin.services import router as admin_services_router
-from src.routers.services import router as services_router
+from src.routers.nail_types import router as nail_types_router
+from src.routers.design_tiers import router as design_tiers_router
+from src.routers.admin.nail_types import router as admin_nail_types_router
+from src.routers.admin.design_tiers import router as admin_design_tiers_router
+from src.routers.nail_analysis import router as nail_analysis_router
 from src.routers.admin.availability import router as admin_availability_router
 from src.routers.admin.blocked_time import router as blocked_time_router
 from src.routers.admin.appointment import router as admin_appointments_router
@@ -48,8 +51,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(appointments_router)
-app.include_router(admin_services_router)
-app.include_router(services_router)
+app.include_router(nail_types_router)
+app.include_router(design_tiers_router)
+app.include_router(admin_nail_types_router)
+app.include_router(admin_design_tiers_router)
+app.include_router(nail_analysis_router)
 app.include_router(admin_availability_router)
 app.include_router(blocked_time_router)
 app.include_router(admin_appointments_router)

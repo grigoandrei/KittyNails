@@ -10,18 +10,20 @@ router = APIRouter(prefix="/api/slots", tags=["slots"])
 
 @router.get("/", response_model=list[datetime])
 async def available_slots(
-    service_id: UUID,
+    nail_type_id: UUID,
+    design_tier_id: UUID,
     target_date: date = Query(..., alias="date"),
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_available_slots(db, service_id, target_date)
+    return await get_available_slots(db, nail_type_id, design_tier_id, target_date)
 
 
 @router.get("/dates", response_model=list[date])
 async def available_dates(
-    service_id: UUID,
+    nail_type_id: UUID,
+    design_tier_id: UUID,
     year: int,
     month: int,
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_available_dates(db, service_id, year, month)
+    return await get_available_dates(db, nail_type_id, design_tier_id, year, month)

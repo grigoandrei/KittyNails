@@ -1,11 +1,16 @@
+import gallery1 from "../assets/gallery-1.jpeg";
+import gallery2 from "../assets/gallery-2.jpeg";
+import gallery3 from "../assets/gallery-3.jpeg";
+import gallery4 from "../assets/gallery-4.jpeg";
+import gallery5 from "../assets/gallery-5.jpeg";
+
 export function Gallery() {
-  const placeholders = [
-    { label: "Minimalist French Tips", color: "bg-pink-100" },
-    { label: "Floral Art Design", color: "bg-rose-100" },
-    { label: "Chrome Finish", color: "bg-purple-100" },
-    { label: "Pastel Ombre", color: "bg-amber-100" },
-    { label: "Gemstone Accents", color: "bg-teal-100" },
-    { label: "Abstract Line Art", color: "bg-sky-100" },
+  const images = [
+    { src: gallery1, alt: "Nail design by KittyNails" },
+    { src: gallery2, alt: "Nail design by KittyNails" },
+    { src: gallery3, alt: "Nail design by KittyNails" },
+    { src: gallery4, alt: "Nail design by KittyNails" },
+    { src: gallery5, alt: "Nail design by KittyNails" },
   ];
 
   return (
@@ -21,14 +26,17 @@ export function Gallery() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {placeholders.map((item, index) => (
+          {images.map((image, index) => (
             <div
               key={index}
-              className={`${item.color} rounded-2xl aspect-square flex items-center justify-center p-6 border border-border/50`}
+              className="rounded-2xl aspect-square overflow-hidden border border-border/50"
             >
-              <span className="text-sm text-muted-foreground text-center font-medium">
-                {item.label}
-              </span>
+              <img
+                src={image.src}
+                alt={image.alt}
+                loading="lazy"
+                className="w-full h-full object-cover"
+              />
             </div>
           ))}
         </div>

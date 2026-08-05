@@ -2,26 +2,42 @@ from datetime import date, datetime, timedelta, time, timezone
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.models.service import Service
+from src.models.nail_type import NailType
+from src.models.design_tier import DesignTier
 from src.exceptions import NotFoundError
 from src.models.availability_rules import AvailabilityRules
 from src.models.blocked_time import BlockedTime
 from src.models.appointment import Appointment, Status
 
 
+async def _resolve_duration(
+    db: AsyncSession,
+    nail_type_id: UUID,
+    design_tier_id: UUID,
+) -> int:
+    """Total appointment length is the nail type plus the design tier. Both must
+    exist and be active for the slot to be bookable."""
+    result = await db.execute(select(NailType).where(NailType.id == nail_type_id))
+    nail_type = result.scalar_one_or_none()
+    if not nail_type or not nail_type.is_active:
+        raise NotFoundError("Nail type not available!")
+
+    result = await db.execute(select(DesignTier).where(DesignTier.id == design_tier_id))
+    design_tier = result.scalar_one_or_none()
+    if not design_tier or not design_tier.is_active:
+        raise NotFoundError("Design tier not available!")
+
+    return nail_type.duration_minutes + design_tier.duration_minutes
+
+
 async def get_available_slots(
     db: AsyncSession,
-    service_id: UUID,
+    nail_type_id: UUID,
+    design_tier_id: UUID,
     target_date: date,
 ) -> list[datetime]:
-    result = await db.execute(select(Service).where(Service.id == service_id))
-    service = result.scalar_one_or_none()
-    if not service:
-        raise NotFoundError("Service not found!")
-    if not service.is_active:
-        raise NotFoundError("Service is not available!")
-
-    duration = timedelta(minutes=service.duration_minutes)
+    total_minutes = await _resolve_duration(db, nail_type_id, design_tier_id)
+    duration = timedelta(minutes=total_minutes)
 
     day_of_week = target_date.weekday()
     result = await db.execute(
@@ -84,7 +100,8 @@ async def get_available_slots(
 
 async def get_available_dates(
     db: AsyncSession,
-    service_id: UUID,
+    nail_type_id: UUID,
+    design_tier_id: UUID,
     year: int,
     month: int,
 ) -> list[date]:
@@ -100,7 +117,7 @@ async def get_available_dates(
 
     while current <= last_day:
         if current >= today:
-            slots = await get_available_slots(db, service_id, current)
+            slots = await get_available_slots(db, nail_type_id, design_tier_id, current)
             if slots:
                 available_dates.append(current)
         current += timedelta(days=1)

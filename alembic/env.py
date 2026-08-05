@@ -8,7 +8,7 @@ from alembic import context
 
 from src.config import settings
 from src.database import Base
-from src.models import Service, Appointment  # noqa: F401 - registers models
+from src.models import Appointment, NailType, DesignTier  # noqa: F401 - registers models
 
 # Alembic Config object
 config = context.config

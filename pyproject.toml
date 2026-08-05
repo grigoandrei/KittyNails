@@ -22,7 +22,8 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "python-multipart>=0.0.9",
     "mangum>=0.19.0",
-    "slowapi>=0.1.9"
+    "slowapi>=0.1.9",
+    "anthropic[bedrock]>=0.40.0"
 ]
 requires-python = ">=3.12"
 

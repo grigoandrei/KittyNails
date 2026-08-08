@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 class AppointmentCreate(BaseModel):
     nail_type_id: UUID
-    design_tier_id: UUID
+    design_tier_id: UUID | None = None
     client_email: EmailStr
     start_time: datetime
     # Carried through from the AI analysis step so we can persist it on the
@@ -25,7 +25,7 @@ class AppointmentResponse(BaseModel):
 
     id: UUID
     nail_type_id: UUID
-    design_tier_id: UUID
+    design_tier_id: UUID | None
     client_email: str
     start_time: datetime
     end_time: datetime

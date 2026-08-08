@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     DEBUG: bool = False
     # Nail analysis uses Claude on Amazon Bedrock (IAM auth via the default AWS
-    # credential chain — no API key). eu. regional prefix keeps data in-region.
+    # credential chain — no API key). Uses EU geo inference profile for cross-region routing.
     AWS_REGION: str = "eu-central-1"
     NAIL_ANALYSIS_MODEL: str = "eu.anthropic.claude-sonnet-4-6"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

@@ -28,17 +28,39 @@ export async function analyzeNails(image: File): Promise<NailAnalysisResponse> {
   return response.json();
 }
 
+// --- Nail Types ---
+
+export interface NailType {
+  id: string;
+  name: string;
+  duration_minutes: number;
+  price: number;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export async function fetchNailTypes(): Promise<NailType[]> {
+  const response = await fetch("/api/nail-types");
+  if (!response.ok) throw new Error("Failed to fetch nail types");
+  return response.json();
+}
+
 // --- Slots ---
 
 export async function fetchAvailableDates(
   nailTypeId: string,
-  designTierId: string,
+  designTierId: string | null,
   year: number,
   month: number
 ): Promise<string[]> {
-  const response = await fetch(
-    `/api/slots/dates?nail_type_id=${nailTypeId}&design_tier_id=${designTierId}&year=${year}&month=${month}`
-  );
+  const params = new URLSearchParams({
+    nail_type_id: nailTypeId,
+    year: String(year),
+    month: String(month),
+  });
+  if (designTierId) params.set("design_tier_id", designTierId);
+
+  const response = await fetch(`/api/slots/dates?${params}`);
   if (!response.ok) {
     throw new Error("Failed to fetch available dates");
   }
@@ -47,12 +69,16 @@ export async function fetchAvailableDates(
 
 export async function fetchSlots(
   nailTypeId: string,
-  designTierId: string,
+  designTierId: string | null,
   date: string
 ): Promise<string[]> {
-  const response = await fetch(
-    `/api/slots/?nail_type_id=${nailTypeId}&design_tier_id=${designTierId}&date=${date}`
-  );
+  const params = new URLSearchParams({
+    nail_type_id: nailTypeId,
+    date,
+  });
+  if (designTierId) params.set("design_tier_id", designTierId);
+
+  const response = await fetch(`/api/slots/?${params}`);
   if (!response.ok) {
     throw new Error("Failed to fetch available time slots");
   }
@@ -63,7 +89,7 @@ export async function fetchSlots(
 
 export interface CreateAppointmentPayload {
   nail_type_id: string;
-  design_tier_id: string;
+  design_tier_id?: string | null;
   client_email: string;
   start_time: string;
   ai_confidence?: string;
@@ -73,7 +99,7 @@ export interface CreateAppointmentPayload {
 export interface AppointmentResponse {
   id: string;
   nail_type_id: string;
-  design_tier_id: string;
+  design_tier_id: string | null;
   client_email: string;
   start_time: string;
   end_time: string;

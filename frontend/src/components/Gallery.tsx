@@ -3,6 +3,7 @@ import gallery2 from "../assets/gallery-2.jpeg";
 import gallery3 from "../assets/gallery-3.jpeg";
 import gallery4 from "../assets/gallery-4.jpeg";
 import gallery5 from "../assets/gallery-5.jpeg";
+import gallery6 from "../assets/gallery-6.jpeg";
 
 export function Gallery() {
   const images = [
@@ -11,6 +12,7 @@ export function Gallery() {
     { src: gallery3, alt: "Nail design by KittyNails" },
     { src: gallery4, alt: "Nail design by KittyNails" },
     { src: gallery5, alt: "Nail design by KittyNails" },
+    { src: gallery6, alt: "Nail design by KittyNails" },
   ];
 
   return (

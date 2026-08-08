@@ -19,7 +19,7 @@ class Appointment(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid4)
     nail_type_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nail_types.id"))
-    design_tier_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("design_tiers.id"))
+    design_tier_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("design_tiers.id"), nullable=True)
     client_email: Mapped[str] = mapped_column(String(255), nullable=False)
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

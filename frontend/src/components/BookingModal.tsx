@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useForm } from "react-hook-form";
 import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, getDay, getDaysInMonth, isSameDay } from "date-fns";
-import { X, ChevronLeft, ChevronRight, Loader2, AlertCircle, Check, Clock, Upload, Sparkles, Info } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Loader2, AlertCircle, Check, Clock, Upload, Sparkles, Info, Leaf } from "lucide-react";
 import { toast } from "sonner";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -10,8 +10,10 @@ import {
   analyzeNails,
   fetchAvailableDates,
   fetchSlots,
+  fetchNailTypes,
   createAppointment,
   type NailAnalysisResponse,
+  type NailType,
 } from "../api";
 
 function cn(...inputs: (string | undefined | null | false)[]) {
@@ -41,6 +43,9 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
 
   // AI estimate
   const [analysis, setAnalysis] = useState<NailAnalysisResponse | null>(null);
+
+  // Japanese Manicure flow (skips AI)
+  const [japaneseManicure, setJapaneseManicure] = useState<NailType | null>(null);
 
   // Date/time state
   const [calendarMonth, setCalendarMonth] = useState(startOfMonth(new Date()));
@@ -76,6 +81,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
       setAnalyzing(false);
       setAnalyzeError(null);
       setAnalysis(null);
+      setJapaneseManicure(null);
       setSelectedDate(null);
       setSelectedTime(null);
       setCalendarMonth(startOfMonth(new Date()));
@@ -130,17 +136,35 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
     }
   }
 
+  async function handleJapaneseManicure() {
+    try {
+      const nailTypes = await fetchNailTypes();
+      const jp = nailTypes.find((nt) => nt.name === "Japanese Manicure");
+      if (!jp) {
+        toast.error("Japanese Manicure is not currently available.");
+        return;
+      }
+      setJapaneseManicure(jp);
+      setAnalysis(null);
+      setStep("datetime");
+    } catch {
+      toast.error("Failed to load service. Please try again.");
+    }
+  }
+
   // Load available dates when entering datetime step or month changes
   const loadAvailableDates = useCallback(async () => {
-    if (!analysis) return;
+    const nailTypeId = analysis?.nail_type_id ?? japaneseManicure?.id;
+    if (!nailTypeId) return;
     setDatesLoading(true);
     setDatesError(null);
     try {
       const year = calendarMonth.getFullYear();
       const month = calendarMonth.getMonth() + 1;
+      const designTierId = analysis?.design_tier_id ?? null;
       const dates = await fetchAvailableDates(
-        analysis.nail_type_id,
-        analysis.design_tier_id,
+        nailTypeId,
+        designTierId,
         year,
         month
       );
@@ -150,25 +174,27 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
     } finally {
       setDatesLoading(false);
     }
-  }, [analysis, calendarMonth]);
+  }, [analysis, japaneseManicure, calendarMonth]);
 
   useEffect(() => {
-    if (step === "datetime" && analysis) {
+    if (step === "datetime" && (analysis || japaneseManicure)) {
       loadAvailableDates();
     }
-  }, [step, analysis, calendarMonth, loadAvailableDates]);
+  }, [step, analysis, japaneseManicure, calendarMonth, loadAvailableDates]);
 
   // Load time slots when date is selected
   const loadTimeSlots = useCallback(async () => {
-    if (!analysis || !selectedDate) return;
+    const nailTypeId = analysis?.nail_type_id ?? japaneseManicure?.id;
+    if (!nailTypeId || !selectedDate) return;
     setSlotsLoading(true);
     setSlotsError(null);
     setSelectedTime(null);
     try {
       const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const designTierId = analysis?.design_tier_id ?? null;
       const slots = await fetchSlots(
-        analysis.nail_type_id,
-        analysis.design_tier_id,
+        nailTypeId,
+        designTierId,
         dateStr
       );
       setTimeSlots(slots);
@@ -177,7 +203,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
     } finally {
       setSlotsLoading(false);
     }
-  }, [analysis, selectedDate]);
+  }, [analysis, japaneseManicure, selectedDate]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -188,7 +214,10 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
   // Navigation
   function goBack() {
     if (step === "estimate") setStep("photo");
-    else if (step === "datetime") setStep("estimate");
+    else if (step === "datetime") {
+      if (japaneseManicure) setStep("photo");
+      else setStep("estimate");
+    }
     else if (step === "confirm") setStep("datetime");
   }
 
@@ -219,17 +248,19 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
   }
 
   async function confirmBooking() {
-    if (!analysis || !selectedTime) return;
+    if (!selectedTime) return;
+    const nailTypeId = analysis?.nail_type_id ?? japaneseManicure?.id;
+    if (!nailTypeId) return;
     setSubmitting(true);
     try {
       const info = getValues();
       await createAppointment({
-        nail_type_id: analysis.nail_type_id,
-        design_tier_id: analysis.design_tier_id,
+        nail_type_id: nailTypeId,
+        design_tier_id: analysis?.design_tier_id ?? null,
         client_email: info.email,
         start_time: selectedTime,
-        ai_confidence: analysis.confidence,
-        ai_reasoning: analysis.reasoning,
+        ai_confidence: analysis?.confidence,
+        ai_reasoning: analysis?.reasoning,
       });
       setConfirmed(true);
       toast.success("Appointment booked successfully!");
@@ -282,7 +313,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
           )}
 
           {/* Confirmed State */}
-          {confirmed && <ConfirmedView analysis={analysis} selectedTime={selectedTime} email={getValues().email} onClose={() => onOpenChange(false)} />}
+          {confirmed && <ConfirmedView analysis={analysis} japaneseManicure={japaneseManicure} selectedTime={selectedTime} email={getValues().email} onClose={() => onOpenChange(false)} />}
 
           {/* Step 1: Photo Upload */}
           {!confirmed && step === "photo" && (
@@ -293,6 +324,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
               analyzeError={analyzeError}
               onFileSelect={handleFileSelect}
               onAnalyze={handleAnalyze}
+              onJapaneseManicure={handleJapaneseManicure}
             />
           )}
 
@@ -328,6 +360,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
           {!confirmed && step === "confirm" && (
             <ConfirmStep
               analysis={analysis}
+              japaneseManicure={japaneseManicure}
               selectedTime={selectedTime}
               submitting={submitting}
               register={register}
@@ -389,12 +422,20 @@ function renderCalendar(
   );
 }
 
-function ConfirmedView({ analysis, selectedTime, email, onClose }: {
+function ConfirmedView({ analysis, japaneseManicure, selectedTime, email, onClose }: {
   analysis: NailAnalysisResponse | null;
+  japaneseManicure: NailType | null;
   selectedTime: string | null;
   email: string;
   onClose: () => void;
 }) {
+  const serviceName = japaneseManicure
+    ? "Japanese Manicure"
+    : `${analysis?.nail_type} + ${analysis?.design_tier}`;
+  const price = japaneseManicure
+    ? japaneseManicure.price
+    : analysis?.estimated_price ?? 0;
+
   return (
     <div className="text-center py-8">
       <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -408,11 +449,11 @@ function ConfirmedView({ analysis, selectedTime, email, onClose }: {
       <div className="bg-secondary rounded-xl p-4 text-left text-sm space-y-1">
         <p>
           <span className="text-muted-foreground">Service:</span>{" "}
-          {analysis?.nail_type} + {analysis?.design_tier}
+          {serviceName}
         </p>
         <p>
           <span className="text-muted-foreground">Price:</span>{" "}
-          €{analysis?.estimated_price.toFixed(2)}
+          €{price.toFixed(2)}
         </p>
         <p>
           <span className="text-muted-foreground">Date & Time:</span>{" "}
@@ -429,13 +470,14 @@ function ConfirmedView({ analysis, selectedTime, email, onClose }: {
   );
 }
 
-function PhotoStep({ previewUrl, selectedFile, analyzing, analyzeError, onFileSelect, onAnalyze }: {
+function PhotoStep({ previewUrl, selectedFile, analyzing, analyzeError, onFileSelect, onAnalyze, onJapaneseManicure }: {
   previewUrl: string | null;
   selectedFile: File | null;
   analyzing: boolean;
   analyzeError: string | null;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAnalyze: () => void;
+  onJapaneseManicure: () => void;
 }) {
   return (
     <div>
@@ -495,6 +537,30 @@ function PhotoStep({ previewUrl, selectedFile, analyzing, analyzeError, onFileSe
           {analyzing ? "Analyzing..." : "Get AI Estimate"}
           {!analyzing && <Sparkles className="w-4 h-4" />}
         </button>
+
+        {/* Japanese Manicure option */}
+        <div className="mt-8 pt-6 border-t border-border">
+          <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wide font-medium">Or choose a fixed-price service</p>
+          <button
+            onClick={onJapaneseManicure}
+            disabled={analyzing}
+            className="w-full px-5 py-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:bg-primary/5 transition-colors text-left cursor-pointer group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <Leaf className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm group-hover:text-primary transition-colors">Japanese Manicure</p>
+                <p className="text-xs text-muted-foreground mt-0.5">€30 · 60 min</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+            </div>
+            <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+              A traditional, chemical-free nail care treatment rooted in a centuries-old ritual. Focuses entirely on healing, strengthening, and adding a natural, pearly gloss to bare nails without using any gel, acrylics, or synthetic nail polish.
+            </p>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -717,8 +783,9 @@ function DateTimeStep({ calendarMonth, canGoPrevMonth, datesLoading, datesError,
   );
 }
 
-function ConfirmStep({ analysis, selectedTime, submitting, register, errors, onSubmit, onBack }: {
+function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, register, errors, onSubmit, onBack }: {
   analysis: NailAnalysisResponse | null;
+  japaneseManicure: NailType | null;
   selectedTime: string | null;
   submitting: boolean;
   register: ReturnType<typeof useForm<ClientInfo>>["register"];
@@ -726,21 +793,31 @@ function ConfirmStep({ analysis, selectedTime, submitting, register, errors, onS
   onSubmit: (e: React.FormEvent) => void;
   onBack: () => void;
 }) {
+  const serviceName = japaneseManicure
+    ? "Japanese Manicure"
+    : `${analysis?.nail_type} + ${analysis?.design_tier}`;
+  const duration = japaneseManicure
+    ? japaneseManicure.duration_minutes
+    : analysis?.estimated_duration_minutes ?? 0;
+  const price = japaneseManicure
+    ? japaneseManicure.price
+    : analysis?.estimated_price ?? 0;
+
   return (
     <form onSubmit={onSubmit}>
       {/* Booking summary */}
       <div className="bg-secondary rounded-xl p-4 space-y-2 text-sm mb-6">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Service</span>
-          <span className="font-medium">{analysis?.nail_type} + {analysis?.design_tier}</span>
+          <span className="font-medium">{serviceName}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Duration</span>
-          <span>{analysis?.estimated_duration_minutes} min</span>
+          <span>{duration} min</span>
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Price</span>
-          <span className="font-medium">€{analysis?.estimated_price.toFixed(2)}</span>
+          <span className="font-medium">€{price.toFixed(2)}</span>
         </div>
         <div className="border-t border-border my-2" />
         <div className="flex justify-between">

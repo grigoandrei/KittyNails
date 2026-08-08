@@ -3,17 +3,20 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from src.schemas.nail_analysis import (
-    Confidence,
-    DesignTierLabel,
+    DesignComplexityClassification,
+    ExtensionsClassification,
+    LengthClassification,
     NailClassification,
-    NailTypeLabel,
 )
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def make_parsed_message(classification: NailClassification | None, stop_reason: str = "end_turn"):
+
+def make_parsed_message(
+    classification: NailClassification | None, stop_reason: str = "end_turn"
+):
     """Mimic the anthropic ParsedMessage surface our service touches:
     `.stop_reason` and `.parsed_output`."""
     return SimpleNamespace(stop_reason=stop_reason, parsed_output=classification)
@@ -28,40 +31,72 @@ def mock_client_returning(classification, stop_reason="end_turn"):
 
 
 async def seed_categories(client):
-    """Seed the 3x3 vocabulary the AI can classify into, matching the enum labels."""
+    """Seed the nail types and design tiers the AI can classify into."""
     for name, price, dur, order in [
-        ("Short", 30.0, 60, 1),
-        ("Regular", 40.0, 75, 2),
-        ("Extensions", 55.0, 120, 3),
+        ("Regular", 40.0, 90, 1),
+        ("Extensions", 55.0, 150, 2),
     ]:
-        await client.post("/api/admin/nail-types", json={
-            "name": name, "price": price, "duration_minutes": dur, "sort_order": order,
-        })
+        await client.post(
+            "/api/admin/nail-types",
+            json={
+                "name": name,
+                "price": price,
+                "duration_minutes": dur,
+                "sort_order": order,
+            },
+        )
     for name, price, dur, order in [
-        ("Simple", 10.0, 15, 1),
-        ("Medium", 25.0, 45, 2),
-        ("Advanced", 45.0, 90, 3),
+        ("Simple", 0.0, 0, 1),
+        ("Medium", 10.0, 0, 2),
+        ("Advanced", 20.0, 30, 3),
     ]:
-        await client.post("/api/admin/design-tiers", json={
-            "name": name, "price": price, "duration_minutes": dur, "sort_order": order,
-        })
+        await client.post(
+            "/api/admin/design-tiers",
+            json={
+                "name": name,
+                "price": price,
+                "duration_minutes": dur,
+                "sort_order": order,
+            },
+        )
 
 
 def fake_image_file():
     return {"image": ("nails.jpg", io.BytesIO(b"fake-image-bytes"), "image/jpeg")}
 
 
+def make_classification(
+    extensions: str = "extensions",
+    extensions_confidence: float = 0.9,
+    complexity: str = "complex",
+    complexity_confidence: float = 0.85,
+    length: str = "long",
+    length_confidence: float = 0.8,
+) -> NailClassification:
+    """Build a NailClassification with sensible defaults."""
+    return NailClassification(
+        length=LengthClassification(length),
+        length_confidence=length_confidence,
+        design_complexity=DesignComplexityClassification(complexity),
+        design_complexity_confidence=complexity_confidence,
+        extensions=ExtensionsClassification(extensions),
+        extensions_confidence=extensions_confidence,
+        visible_details="Test nails visible.",
+        uncertainties="None.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
 
+
 async def test_analyze_nails_happy_path(client):
     await seed_categories(client)
-    classification = NailClassification(
-        nail_type=NailTypeLabel.EXTENSIONS,
-        design_tier=DesignTierLabel.ADVANCED,
-        confidence=Confidence.HIGH,
-        reasoning="Long extended nails with intricate hand-painted art.",
+    classification = make_classification(
+        extensions="extensions",
+        complexity="complex",
+        length="long",
     )
 
     with patch(
@@ -74,20 +109,21 @@ async def test_analyze_nails_happy_path(client):
     data = response.json()
     assert data["nail_type"] == "Extensions"
     assert data["design_tier"] == "Advanced"
-    # Price/duration derived server-side: 55 + 45 = 100, 120 + 90 = 210
-    assert data["estimated_price"] == 100.0
-    assert data["estimated_duration_minutes"] == 210
+    # Price/duration: Extensions(55) + Advanced(20) = 75, 150 + 30 = 180
+    assert data["estimated_price"] == 75.0
+    assert data["estimated_duration_minutes"] == 180
     assert data["confidence"] == "high"
     assert "nail_type_id" in data and "design_tier_id" in data
+    assert data["length"] == "long"
 
 
-async def test_analyze_nails_pricing_short_simple(client):
+async def test_analyze_nails_pricing_regular_simple(client):
+    """Regular nails with minimal design → Regular + Simple pricing."""
     await seed_categories(client)
-    classification = NailClassification(
-        nail_type=NailTypeLabel.SHORT,
-        design_tier=DesignTierLabel.SIMPLE,
-        confidence=Confidence.MEDIUM,
-        reasoning="Short natural nails, single colour.",
+    classification = make_classification(
+        extensions="natural",
+        complexity="minimal",
+        length="short",
     )
 
     with patch(
@@ -98,9 +134,35 @@ async def test_analyze_nails_pricing_short_simple(client):
 
     assert response.status_code == 200
     data = response.json()
-    # 30 + 10 = 40, 60 + 15 = 75
+    assert data["nail_type"] == "Regular"
+    assert data["design_tier"] == "Simple"
+    # Regular(40) + Simple(0) = 40, 90 + 0 = 90
     assert data["estimated_price"] == 40.0
-    assert data["estimated_duration_minutes"] == 75
+    assert data["estimated_duration_minutes"] == 90
+
+
+async def test_analyze_nails_uncertain_extensions_defaults_to_regular(client):
+    """When extensions is uncertain, we default to Regular nail type."""
+    await seed_categories(client)
+    classification = make_classification(
+        extensions="uncertain",
+        complexity="medium",
+        length="medium",
+    )
+
+    with patch(
+        "src.services.nail_analysis_service.get_client",
+        return_value=mock_client_returning(classification),
+    ):
+        response = await client.post("/api/analyze-nails", files=fake_image_file())
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["nail_type"] == "Regular"
+    assert data["design_tier"] == "Medium"
+    # Regular(40) + Medium(10) = 50, 90 + 0 = 90
+    assert data["estimated_price"] == 50.0
+    assert data["estimated_duration_minutes"] == 90
 
 
 async def test_analyze_nails_refusal(client):
@@ -135,11 +197,10 @@ async def test_analyze_nails_category_deactivated(client):
     ext = next(nt for nt in admin.json() if nt["name"] == "Extensions")
     await client.put(f"/api/admin/nail-types/{ext['id']}", json={"is_active": False})
 
-    classification = NailClassification(
-        nail_type=NailTypeLabel.EXTENSIONS,
-        design_tier=DesignTierLabel.SIMPLE,
-        confidence=Confidence.HIGH,
-        reasoning="Extended nails.",
+    classification = make_classification(
+        extensions="extensions",
+        complexity="minimal",
+        length="long",
     )
 
     with patch(
@@ -154,7 +215,6 @@ async def test_analyze_nails_category_deactivated(client):
 async def test_analyze_nails_unsupported_media_type(client):
     await seed_categories(client)
     files = {"image": ("nails.bmp", io.BytesIO(b"fake"), "image/bmp")}
-    # No client call should happen; validation rejects before the model.
     response = await client.post("/api/analyze-nails", files=files)
     assert response.status_code == 400
 
@@ -169,5 +229,4 @@ async def test_analyze_nails_empty_file(client):
 async def test_analyze_nails_missing_file(client):
     await seed_categories(client)
     response = await client.post("/api/analyze-nails")
-    # FastAPI returns 422 for a missing required file field.
     assert response.status_code == 422

@@ -18,16 +18,19 @@ async def create_appointment(data: AppointmentCreate, db: AsyncSession) -> Appoi
     if not nail_type or not nail_type.is_active:
         raise NotFoundError("Nail type not available!")
 
-    result = await db.execute(select(DesignTier).where(DesignTier.id == data.design_tier_id))
-    design_tier = result.scalar_one_or_none()
+    # Design tier is optional (e.g. Japanese Manicure doesn't use one)
+    design_tier = None
+    if data.design_tier_id:
+        result = await db.execute(select(DesignTier).where(DesignTier.id == data.design_tier_id))
+        design_tier = result.scalar_one_or_none()
 
-    if not design_tier or not design_tier.is_active:
-        raise NotFoundError("Design tier not available!")
+        if not design_tier or not design_tier.is_active:
+            raise NotFoundError("Design tier not available!")
 
     # Duration and price are always derived server-side from the current DB rows
     # so the client can never dictate what they pay.
-    total_minutes = nail_type.duration_minutes + design_tier.duration_minutes
-    quoted_price = float(nail_type.price) + float(design_tier.price)
+    total_minutes = nail_type.duration_minutes + (design_tier.duration_minutes if design_tier else 0)
+    quoted_price = float(nail_type.price) + (float(design_tier.price) if design_tier else 0)
 
     end_time = data.start_time + timedelta(minutes=total_minutes)
 

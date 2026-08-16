@@ -154,6 +154,9 @@ export function AppointmentsPage() {
                   Client
                 </th>
                 <th className="px-6 py-3 text-sm font-medium text-muted-foreground">
+                  Price
+                </th>
+                <th className="px-6 py-3 text-sm font-medium text-muted-foreground">
                   Status
                 </th>
                 <th className="px-6 py-3 text-sm font-medium text-muted-foreground">
@@ -171,6 +174,7 @@ export function AppointmentsPage() {
                     {format(new Date(apt.start_time), "MMM d, yyyy HH:mm")}
                   </td>
                   <td className="px-6 py-4 text-sm">{apt.client_email}</td>
+                  <td className="px-6 py-4 text-sm">€{apt.quoted_price.toFixed(2)}</td>
                   <td className="px-6 py-4">
                     <span
                       className={`text-xs px-2 py-1 rounded-full font-medium ${statusBadgeClass(apt.status)}`}

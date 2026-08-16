@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import logoImg from "../assets/logo.jpeg";
 
 interface NavbarProps {
   onBookNow: () => void;
@@ -27,7 +28,7 @@ export function Navbar({ onBookNow }: NavbarProps) {
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
           <a href="#" className="flex items-center gap-2 group">
-            <Sparkles className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+            <img src={logoImg} alt="KittyNails" className="w-8 h-8 rounded-full object-cover group-hover:scale-110 transition-transform" />
             <span className="font-[family-name:var(--font-serif)] text-xl sm:text-2xl font-semibold tracking-tight">
               KittyNails
             </span>

@@ -22,7 +22,7 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids i-0f508c584e8e25c73 \
             --document-name "AWS-RunShellScript" \
-            --parameters '{"commands":["cd /home/ec2-user/kittynails && git pull origin ${{ github.ref_name }} && cd frontend && npm install --production=false && npm run build && cd .. && export DB_PASSWORD=$(grep ^DB_PASSWORD= .env.prod | cut -d= -f2) && docker compose -f docker-compose.prod.yml up -d app --build --force-recreate && docker compose -f docker-compose.prod.yml restart nginx reminder"]}' \
+            --parameters '{"commands":["git config --global --add safe.directory /home/ec2-user/kittynails && cd /home/ec2-user/kittynails && git pull origin ${{ github.ref_name }} && cd frontend && npm install --production=false && npm run build && cd .. && export DB_PASSWORD=$(grep ^DB_PASSWORD= .env.prod | cut -d= -f2) && docker compose -f docker-compose.prod.yml up -d app --build --force-recreate && docker compose -f docker-compose.prod.yml restart nginx reminder"]}' \
             --timeout-seconds 300 \
             --query "Command.CommandId" \
             --output text)

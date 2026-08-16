@@ -1,13 +1,15 @@
-from datetime import date, datetime, timedelta, time, timezone
+from datetime import date, datetime, time, timedelta
 from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.models.nail_type import NailType
-from src.models.design_tier import DesignTier
+
 from src.exceptions import NotFoundError
+from src.models.appointment import Appointment, Status
 from src.models.availability_rules import AvailabilityRules
 from src.models.blocked_time import BlockedTime
-from src.models.appointment import Appointment, Status
+from src.models.design_tier import DesignTier
+from src.models.nail_type import NailType
 
 
 async def _resolve_duration(
@@ -55,7 +57,7 @@ async def get_available_slots(
 
     result = await db.execute(
         select(Appointment).where(
-            Appointment.status == Status.BOOKED,
+            Appointment.status.in_([Status.BOOKED, Status.PENDING_PAYMENT]),
             Appointment.start_time >= day_start,
             Appointment.start_time <= day_end,
         )
@@ -71,7 +73,13 @@ async def get_available_slots(
     blocked = result.scalars().all()
 
     def to_naive(dt: datetime) -> datetime:
-        return dt.replace(tzinfo=None) if dt.tzinfo else dt
+        """Convert a timezone-aware datetime to naive local time for comparison
+        with the naive slot times we generate."""
+        if dt.tzinfo is None:
+            return dt
+        return dt.astimezone(None).replace(tzinfo=None)
+
+    now = datetime.now()
 
     available = []
     for rule in rules:
@@ -82,6 +90,11 @@ async def get_available_slots(
 
             if slot_end.time() > rule.end_time:
                 break
+
+            # Skip slots that are in the past
+            if slot_start <= now:
+                slot_start_time = (slot_start + duration).time()
+                continue
 
             has_conflict = any(
                 slot_start < to_naive(appt.end_time) and slot_end > to_naive(appt.start_time)

@@ -8,6 +8,7 @@ import { Gallery } from "./components/Gallery";
 import { Testimonials } from "./components/Testimonials";
 import { Footer } from "./components/Footer";
 import { BookingModal } from "./components/BookingModal";
+import { BookingSuccess, BookingCancelled } from "./components/BookingResult";
 import { AuthProvider } from "./admin/AuthContext";
 import { AdminLayout } from "./admin/AdminLayout";
 import { LoginPage } from "./admin/LoginPage";
@@ -42,6 +43,8 @@ export default function App() {
       <Toaster position="top-center" richColors />
       <Routes>
         <Route path="/" element={<PublicSite />} />
+        <Route path="/booking/success" element={<BookingSuccess />} />
+        <Route path="/booking/cancelled" element={<BookingCancelled />} />
         <Route path="/admin/login" element={<LoginPage />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="/admin/dashboard" replace />} />

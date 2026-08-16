@@ -11,7 +11,7 @@ import {
   fetchAvailableDates,
   fetchSlots,
   fetchNailTypes,
-  createAppointment,
+  createCheckoutSession,
   type NailAnalysisResponse,
   type NailType,
 } from "../api";
@@ -248,26 +248,45 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
   }
 
   async function confirmBooking() {
-    if (!selectedTime) return;
+    if (!selectedTime || !selectedDate) return;
     const nailTypeId = analysis?.nail_type_id ?? japaneseManicure?.id;
     if (!nailTypeId) return;
     setSubmitting(true);
     try {
+      // Re-check slot availability right before booking
+      const designTierId = analysis?.design_tier_id ?? null;
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const freshSlots = await fetchSlots(nailTypeId, designTierId, dateStr);
+      if (!freshSlots.includes(selectedTime)) {
+        toast.error("This time slot is no longer available. Please choose another.");
+        setSelectedTime(null);
+        setTimeSlots(freshSlots);
+        setStep("datetime");
+        return;
+      }
+
       const info = getValues();
-      await createAppointment({
+      // Create a Stripe Checkout Session and redirect the client to pay
+      // the €15 deposit. The appointment is created in PENDING_PAYMENT
+      // status; the Stripe webhook confirms it once payment succeeds.
+      const { checkout_url } = await createCheckoutSession({
         nail_type_id: nailTypeId,
-        design_tier_id: analysis?.design_tier_id ?? null,
+        design_tier_id: designTierId,
         client_email: info.email,
         start_time: selectedTime,
         ai_confidence: analysis?.confidence,
         ai_reasoning: analysis?.reasoning,
       });
-      setConfirmed(true);
-      toast.success("Appointment booked successfully!");
+      // Redirect to Stripe's hosted checkout page
+      window.location.href = checkout_url;
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to book appointment."
+        err instanceof Error ? err.message : "Failed to start checkout."
       );
+      // Slot was likely taken — go back to time selection and refresh
+      setSelectedTime(null);
+      setStep("datetime");
+      loadTimeSlots();
     } finally {
       setSubmitting(false);
     }
@@ -460,6 +479,17 @@ function ConfirmedView({ analysis, japaneseManicure, selectedTime, email, onClos
           {selectedTime && format(parseISO(selectedTime), "MMM d, yyyy 'at' h:mm a")}
         </p>
       </div>
+      <p className="text-sm text-muted-foreground mt-5">
+        If you want to reach out to the nail artist, please leave a DM at:{" "}
+        <a
+          href="https://www.instagram.com/kittynails_berlin/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary font-medium hover:underline"
+        >
+          @kittynails_berlin
+        </a>
+      </p>
       <button
         onClick={onClose}
         className="mt-6 bg-primary text-primary-foreground px-6 py-2.5 rounded-full text-sm font-medium hover:bg-primary-dark transition-colors cursor-pointer"
@@ -826,6 +856,21 @@ function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, reg
             {selectedTime && format(parseISO(selectedTime), "MMM d, yyyy 'at' h:mm a")}
           </span>
         </div>
+        <div className="border-t border-border my-2" />
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Deposit due now</span>
+          <span className="font-semibold text-primary">€15.00</span>
+        </div>
+      </div>
+
+      {/* Deposit note */}
+      <div className="mb-6 flex items-start gap-2 text-xs text-muted-foreground bg-blue-50 rounded-lg p-3">
+        <Info className="w-4 h-4 mt-0.5 shrink-0 text-blue-500" />
+        <span>
+          A €15 deposit secures your appointment and is deducted from the final
+          price. You'll be redirected to our secure payment page to complete it.
+          The remaining balance is paid at the studio.
+        </span>
       </div>
 
       {/* Client info */}
@@ -882,7 +927,7 @@ function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, reg
           )}
         >
           {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-          {submitting ? "Booking..." : "Confirm Booking"}
+          {submitting ? "Redirecting to payment..." : "Pay Deposit & Book"}
         </button>
       </div>
     </form>

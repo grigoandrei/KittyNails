@@ -1,0 +1,14 @@
+# Lambda container image for the KittyNails FastAPI backend (via Mangum).
+# Build context is the repo root so we can copy `src` and `pyproject.toml`.
+#
+# The same image is used for both Lambdas — the CDK stack overrides the CMD
+# for the reminder function to `src.reminder_handler.handler`.
+FROM public.ecr.aws/lambda/python:3.12
+
+# Install the project + dependencies directly into the Lambda task root.
+COPY pyproject.toml ${LAMBDA_TASK_ROOT}/
+COPY src ${LAMBDA_TASK_ROOT}/src
+RUN pip install --no-cache-dir "${LAMBDA_TASK_ROOT}" --target "${LAMBDA_TASK_ROOT}"
+
+# Default handler = FastAPI app behind Mangum. Overridden for the reminder Lambda.
+CMD ["src.main.handler"]

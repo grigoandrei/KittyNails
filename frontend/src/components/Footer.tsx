@@ -60,9 +60,8 @@ export function Footer() {
               Visit Us
             </h4>
             <div className="text-sm text-white/60 space-y-2">
-              <p>123 Blossom Lane</p>
-              <p>Suite 4B</p>
-              <p>Open Tue - Sat, 10am - 7pm</p>
+              <p>Stallschreiberstraße 16</p>
+              <p>10179 Berlin</p>
             </div>
           </div>
         </div>

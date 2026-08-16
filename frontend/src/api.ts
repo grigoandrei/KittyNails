@@ -126,3 +126,28 @@ export async function createAppointment(
   }
   return response.json();
 }
+
+// --- Stripe Checkout ---
+
+export interface CheckoutSessionResponse {
+  checkout_url: string;
+  session_id: string;
+  appointment_id: string;
+}
+
+export async function createCheckoutSession(
+  payload: CreateAppointmentPayload
+): Promise<CheckoutSessionResponse> {
+  const response = await fetch("/api/checkout/create-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(
+      error?.detail || error?.message || "Failed to start checkout"
+    );
+  }
+  return response.json();
+}

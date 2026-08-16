@@ -42,10 +42,12 @@ export function Hero({ onBookNow }: HeroProps) {
             Book Your Appointment
           </button>
           <a
-            href="#services"
+            href="https://www.instagram.com/kittynails_berlin/"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-muted-foreground hover:text-foreground transition-colors text-sm underline underline-offset-4"
           >
-            View our services
+            @kittynails_berlin
           </a>
         </div>
       </div>

@@ -55,8 +55,10 @@ async def get_available_slots(
     if not rules:
         return []
 
-    day_start = datetime.combine(target_date, time.min)
-    day_end = datetime.combine(target_date, time.max)
+    # Use Berlin-aware datetimes for the day boundaries so PostgreSQL
+    # can correctly compare against timezone-aware stored timestamps.
+    day_start = datetime.combine(target_date, time.min, tzinfo=BERLIN_TZ)
+    day_end = datetime.combine(target_date, time.max, tzinfo=BERLIN_TZ)
 
     result = await db.execute(
         select(Appointment).where(
@@ -75,20 +77,21 @@ async def get_available_slots(
     )
     blocked = result.scalars().all()
 
-    def to_naive(dt: datetime) -> datetime:
-        """Convert a timezone-aware datetime to naive local time for comparison
-        with the naive slot times we generate."""
+    def to_berlin(dt: datetime) -> datetime:
+        """Convert any datetime to Berlin time for comparison."""
         if dt.tzinfo is None:
-            return dt
-        return dt.astimezone(None).replace(tzinfo=None)
+            # Assume naive datetimes are UTC (legacy data)
+            from datetime import timezone as tz
+            dt = dt.replace(tzinfo=tz.utc)
+        return dt.astimezone(BERLIN_TZ)
 
-    now = datetime.now(BERLIN_TZ).replace(tzinfo=None)
+    now = datetime.now(BERLIN_TZ)
 
     available = []
     for rule in rules:
         slot_start_time = rule.start_time
         while True:
-            slot_start = datetime.combine(target_date, slot_start_time)
+            slot_start = datetime.combine(target_date, slot_start_time, tzinfo=BERLIN_TZ)
             slot_end = slot_start + duration
 
             if slot_end.time() > rule.end_time:
@@ -100,17 +103,17 @@ async def get_available_slots(
                 continue
 
             has_conflict = any(
-                slot_start < to_naive(appt.end_time) and slot_end > to_naive(appt.start_time)
+                slot_start < to_berlin(appt.end_time) and slot_end > to_berlin(appt.start_time)
                 for appt in booked
             )
 
             is_blocked = any(
-                slot_start < to_naive(bt.end_time) and slot_end > to_naive(bt.start_time)
+                slot_start < to_berlin(bt.end_time) and slot_end > to_berlin(bt.start_time)
                 for bt in blocked
             )
 
             if not has_conflict and not is_blocked:
-                available.append(slot_start.replace(tzinfo=BERLIN_TZ))
+                available.append(slot_start)
 
             slot_start_time = (slot_start + duration).time()
 

@@ -21,7 +21,12 @@ from src.routers.nail_analysis import router as nail_analysis_router
 from src.routers.nail_types import router as nail_types_router
 from src.routers.slots import router as slots_router
 
-origins = ["http://localhost:5173", "http://localhost:3000"]
+origins = [
+    "https://kittynailsberlin.de",
+    "https://www.kittynailsberlin.de",
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
 
 app = FastAPI()
 app.state.limiter = limiter

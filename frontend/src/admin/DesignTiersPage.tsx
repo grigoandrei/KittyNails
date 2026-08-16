@@ -195,7 +195,7 @@ export function DesignTiersPage() {
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border text-left bg-secondary">
                 <th className="px-6 py-3 text-sm font-medium text-muted-foreground">
@@ -266,7 +266,7 @@ export function DesignTiersPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

@@ -144,7 +144,7 @@ export function AppointmentsPage() {
         ) : appointments.length === 0 ? (
           <p className="text-muted-foreground p-6">No appointments found.</p>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border text-left bg-secondary">
                 <th className="px-6 py-3 text-sm font-medium text-muted-foreground">
@@ -205,7 +205,7 @@ export function AppointmentsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

@@ -17,7 +17,7 @@ export function Hero({ onBookNow }: HeroProps) {
         <div className="inline-flex items-center gap-2 bg-secondary px-4 py-2 rounded-full mb-6">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm text-muted-foreground">
-            Korean Nail Art Studio
+            Nail Art Studio
           </span>
         </div>
 
@@ -27,7 +27,7 @@ export function Hero({ onBookNow }: HeroProps) {
         </h1>
 
         <p className="text-lg sm:text-xl text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed">
-          Experience the artistry of Korean nail design. From minimalist chic to
+          Experience the artistry of Asian nail design. From minimalist chic to
           intricate art, we bring your vision to life.
         </p>
 

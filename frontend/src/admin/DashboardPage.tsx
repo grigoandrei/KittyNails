@@ -34,7 +34,7 @@ export function DashboardPage() {
             No appointments booked for today.
           </p>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="pb-3 text-sm font-medium text-muted-foreground">
@@ -63,7 +63,7 @@ export function DashboardPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

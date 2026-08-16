@@ -1,5 +1,6 @@
 from datetime import date, datetime, time, timedelta
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,8 @@ from src.models.availability_rules import AvailabilityRules
 from src.models.blocked_time import BlockedTime
 from src.models.design_tier import DesignTier
 from src.models.nail_type import NailType
+
+BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
 
 async def _resolve_duration(
@@ -79,7 +82,7 @@ async def get_available_slots(
             return dt
         return dt.astimezone(None).replace(tzinfo=None)
 
-    now = datetime.now()
+    now = datetime.now(BERLIN_TZ).replace(tzinfo=None)
 
     available = []
     for rule in rules:
@@ -107,7 +110,7 @@ async def get_available_slots(
             )
 
             if not has_conflict and not is_blocked:
-                available.append(slot_start)
+                available.append(slot_start.replace(tzinfo=BERLIN_TZ))
 
             slot_start_time = (slot_start + duration).time()
 

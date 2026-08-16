@@ -603,22 +603,12 @@ function EstimateStep({ analysis, onContinue, onBack }: {
 }) {
   if (!analysis) return null;
 
-  const confidenceColor =
-    analysis.confidence === "high"
-      ? "bg-green-100 text-green-700"
-      : analysis.confidence === "medium"
-        ? "bg-yellow-100 text-yellow-700"
-        : "bg-red-100 text-red-700";
-
   return (
     <div>
       {/* Estimate card */}
       <div className="bg-secondary rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h4 className="font-semibold">AI Estimate</h4>
-          <span className={cn("text-xs px-2 py-1 rounded-full font-medium capitalize", confidenceColor)}>
-            {analysis.confidence} confidence
-          </span>
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">

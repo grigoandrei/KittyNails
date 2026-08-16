@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
 import { toast } from "sonner";
 import {
   fetchAdminAppointments,
@@ -171,7 +170,7 @@ export function AppointmentsPage() {
                   className="border-b border-border last:border-0"
                 >
                   <td className="px-6 py-4 text-sm">
-                    {format(new Date(apt.start_time), "MMM d, yyyy HH:mm")}
+                    {new Date(apt.start_time).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </td>
                   <td className="px-6 py-4 text-sm">{apt.client_email}</td>
                   <td className="px-6 py-4 text-sm">€{apt.quoted_price.toFixed(2)}</td>

@@ -6,12 +6,15 @@ interface HeroProps {
 
 export function Hero({ onBookNow }: HeroProps) {
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center px-4 pt-20">
-      {/* Decorative background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary-light/20 rounded-full blur-3xl" />
-      </div>
+    <section className="relative min-h-[90vh] flex items-center justify-center px-4 pt-20 overflow-hidden">
+      {/* Background image */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: "url('/photo-1555231955-348aa2312e19.avif')",
+        }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#FEF7F5]/75 via-[#FEF7F5]/60 to-[#FEF7F5]" />
 
       <div className="relative text-center max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 bg-secondary px-4 py-2 rounded-full mb-6">
@@ -34,7 +37,7 @@ export function Hero({ onBookNow }: HeroProps) {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <button
             onClick={onBookNow}
-            className="bg-primary text-primary-foreground px-8 py-3.5 rounded-full text-base font-medium hover:bg-primary-dark transition-colors shadow-md hover:shadow-lg"
+            className="bg-primary text-primary-foreground px-8 py-3.5 rounded-full text-base font-medium hover:bg-primary-dark transition-colors shadow-md hover:shadow-lg cursor-pointer"
           >
             Book Your Appointment
           </button>

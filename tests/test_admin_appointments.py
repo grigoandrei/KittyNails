@@ -1,4 +1,6 @@
-import pytest
+from tests.conftest import at, future_weekday
+
+MONDAY = future_weekday(0)
 
 
 async def create_test_categories(client):
@@ -26,7 +28,7 @@ async def setup_availability_and_book(client):
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "test@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
     })
     return resp.json()["id"]
 
@@ -42,7 +44,7 @@ async def test_list_appointments(client):
 
 
 async def test_list_appointments_filter_by_status(client):
-    appointment_id = await setup_availability_and_book(client)
+    await setup_availability_and_book(client)
 
     response = await client.get("/api/admin/appointments/?status=BOOKED")
     assert response.status_code == 200
@@ -96,7 +98,7 @@ async def test_list_appointments_pagination(client):
             "nail_type_id": nail_type_id,
             "design_tier_id": design_tier_id,
             "client_email": f"client{hour}@example.com",
-            "start_time": f"2026-08-10T{hour:02d}:00:00+00:00",
+            "start_time": at(MONDAY, hour),
         })
 
     response = await client.get("/api/admin/appointments/?limit=2")

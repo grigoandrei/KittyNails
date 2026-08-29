@@ -17,6 +17,7 @@ from src.services.email_service import (
     send_confirmation_email,
     send_reminder_email,
 )
+from tests.conftest import at, future_weekday
 
 # -- Helper data --
 
@@ -128,6 +129,7 @@ class TestSendFunctions:
         """Override conftest's setup_database to avoid DB connection."""
         yield
 
+    @patch("src.services.email_service.settings.SES_ENABLED", True)
     @patch("src.services.email_service._get_ses_client")
     async def test_send_confirmation_email_success(self, mock_get_client):
         mock_client = MagicMock()
@@ -148,6 +150,7 @@ class TestSendFunctions:
         assert call_kwargs["Destination"]["ToAddresses"] == [SAMPLE_EMAIL]
         assert "Confirmed" in call_kwargs["Message"]["Subject"]["Data"]
 
+    @patch("src.services.email_service.settings.SES_ENABLED", True)
     @patch("src.services.email_service._get_ses_client")
     async def test_send_reminder_email_success(self, mock_get_client):
         mock_client = MagicMock()
@@ -248,6 +251,7 @@ class TestAppointmentEmailIntegration:
     """Tests that verify the appointment endpoint sends emails.
     Require PostgreSQL — skipped if DB is unavailable."""
 
+    @patch("src.services.email_service.settings.SES_ENABLED", True)
     @patch("src.services.email_service._get_ses_client")
     async def test_appointment_creation_sends_confirmation_email(
         self, mock_get_client, client
@@ -280,7 +284,7 @@ class TestAppointmentEmailIntegration:
             json={
                 "nail_type_id": nail_type_id,
                 "client_email": "nails@example.com",
-                "start_time": "2026-08-10T10:00:00+00:00",
+                "start_time": at(future_weekday(0), 10),
             },
         )
 
@@ -326,7 +330,7 @@ class TestAppointmentEmailIntegration:
             json={
                 "nail_type_id": nail_type_id,
                 "client_email": "nails@example.com",
-                "start_time": "2026-08-10T10:00:00+00:00",
+                "start_time": at(future_weekday(0), 10),
             },
         )
 

@@ -1,4 +1,3 @@
-import pytest
 
 
 async def test_create_blocked_time(client):
@@ -29,7 +28,8 @@ async def test_create_blocked_time_invalid_time_order(client):
         "start_time": "2026-06-25T17:00:00Z",
         "end_time": "2026-06-25T09:00:00Z",
     })
-    assert response.status_code == 400
+    # Schema-level validation (model_validator) rejects end <= start with 422.
+    assert response.status_code == 422
 
 
 async def test_create_duplicate_blocked_time(client):

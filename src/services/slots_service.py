@@ -14,6 +14,11 @@ from src.models.nail_type import NailType
 
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
+# Slots are offered on a fixed 30-minute grid (10:00, 10:30, 11:00, ...).
+# A slot is shown whenever an appointment of the requested duration fits
+# entirely within the schedule and doesn't overlap a booking or blocked time.
+SLOT_STEP = timedelta(minutes=30)
+
 
 async def _resolve_duration(
     db: AsyncSession,
@@ -89,33 +94,40 @@ async def get_available_slots(
 
     available = []
     for rule in rules:
-        slot_start_time = rule.start_time
+        # Grid start/end as full timezone-aware datetimes so the loop is
+        # date-safe (no time-only comparisons that wrap at midnight).
+        rule_start = datetime.combine(target_date, rule.start_time, tzinfo=BERLIN_TZ)
+        rule_end = datetime.combine(target_date, rule.end_time, tzinfo=BERLIN_TZ)
+
+        slot_start = rule_start
         while True:
-            slot_start = datetime.combine(target_date, slot_start_time, tzinfo=BERLIN_TZ)
             slot_end = slot_start + duration
 
-            if slot_end.time() > rule.end_time:
+            # Stop once the appointment would run past the end of the schedule.
+            if slot_end > rule_end:
                 break
 
-            # Skip slots that are in the past
+            # Skip slots that are in the past.
             if slot_start <= now:
-                slot_start_time = (slot_start + duration).time()
+                slot_start += SLOT_STEP
                 continue
 
             has_conflict = any(
-                slot_start < to_berlin(appt.end_time) and slot_end > to_berlin(appt.start_time)
+                slot_start < to_berlin(appt.end_time)
+                and slot_end > to_berlin(appt.start_time)
                 for appt in booked
             )
 
             is_blocked = any(
-                slot_start < to_berlin(bt.end_time) and slot_end > to_berlin(bt.start_time)
+                slot_start < to_berlin(bt.end_time)
+                and slot_end > to_berlin(bt.start_time)
                 for bt in blocked
             )
 
             if not has_conflict and not is_blocked:
                 available.append(slot_start)
 
-            slot_start_time = (slot_start + duration).time()
+            slot_start += SLOT_STEP
 
     return sorted(available)
 

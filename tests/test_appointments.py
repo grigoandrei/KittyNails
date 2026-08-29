@@ -1,4 +1,10 @@
-import pytest
+from tests.conftest import at, future_weekday
+
+# All appointment tests target the next future Monday (weekday 0) so they both
+# satisfy the "start_time must be in the future" validator and line up with the
+# Monday (day_of_week=0) availability rule the helpers create.
+MONDAY = future_weekday(0)
+SUNDAY = future_weekday(6)
 
 
 async def create_test_categories(client, nail_minutes=45, design_minutes=15):
@@ -28,14 +34,13 @@ async def setup_availability_for_day(client, day_of_week):
 
 async def test_create_appointment(client):
     nail_type_id, design_tier_id = await create_test_categories(client)
-    # 2026-08-10 is a Monday (weekday 0)
     await setup_availability_for_day(client, 0)
 
     response = await client.post("/api/appointments", json={
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "test@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
     })
     assert response.status_code == 201
     data = response.json()
@@ -55,7 +60,7 @@ async def test_create_appointment_persists_ai_fields(client):
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "test@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
         "ai_confidence": "high",
         "ai_reasoning": "Clear photo of extended nails with simple design.",
     })
@@ -73,14 +78,14 @@ async def test_appointment_conflict_same_time(client):
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "first@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
     })
 
     response = await client.post("/api/appointments", json={
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "second@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
     })
     assert response.status_code == 409
 
@@ -93,14 +98,14 @@ async def test_appointment_conflict_overlapping(client):
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "first@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
     })
 
     response = await client.post("/api/appointments", json={
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "second@example.com",
-        "start_time": "2026-08-10T10:30:00+00:00",
+        "start_time": at(MONDAY, 10, 30),
     })
     assert response.status_code == 409
 
@@ -113,14 +118,14 @@ async def test_appointment_no_conflict_adjacent(client):
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "first@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
     })
 
     response = await client.post("/api/appointments", json={
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "second@example.com",
-        "start_time": "2026-08-10T11:00:00+00:00",
+        "start_time": at(MONDAY, 11),
     })
     assert response.status_code == 201
 
@@ -132,7 +137,7 @@ async def test_appointment_nonexistent_nail_type(client):
         "nail_type_id": fake_id,
         "design_tier_id": design_tier_id,
         "client_email": "test@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
     })
     assert response.status_code == 404
 
@@ -144,7 +149,7 @@ async def test_appointment_nonexistent_design_tier(client):
         "nail_type_id": nail_type_id,
         "design_tier_id": fake_id,
         "client_email": "test@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
     })
     assert response.status_code == 404
 
@@ -153,24 +158,24 @@ async def test_appointment_outside_working_hours(client):
     nail_type_id, design_tier_id = await create_test_categories(client)
     await setup_availability_for_day(client, 0)
 
+    # 07:00 is before the 09:00 opening time.
     response = await client.post("/api/appointments", json={
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "test@example.com",
-        "start_time": "2026-08-10T07:00:00+00:00",
+        "start_time": at(MONDAY, 7),
     })
     assert response.status_code == 400
 
 
 async def test_appointment_salon_closed(client):
     nail_type_id, design_tier_id = await create_test_categories(client)
-    # No availability rules for Sunday (6)
-    # 2026-08-09 is a Sunday
+    # No availability rules for Sunday (weekday 6).
     response = await client.post("/api/appointments", json={
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "test@example.com",
-        "start_time": "2026-08-09T10:00:00+00:00",
+        "start_time": at(SUNDAY, 10),
     })
     assert response.status_code == 400
 
@@ -180,8 +185,8 @@ async def test_appointment_during_blocked_time(client):
     await setup_availability_for_day(client, 0)
 
     await client.post("/api/admin/blocked-times", json={
-        "start_time": "2026-08-10T12:00:00+00:00",
-        "end_time": "2026-08-10T13:00:00+00:00",
+        "start_time": at(MONDAY, 12),
+        "end_time": at(MONDAY, 13),
         "reason": "Lunch break",
     })
 
@@ -189,7 +194,7 @@ async def test_appointment_during_blocked_time(client):
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "test@example.com",
-        "start_time": "2026-08-10T12:00:00+00:00",
+        "start_time": at(MONDAY, 12),
     })
     assert response.status_code == 409
 
@@ -202,7 +207,7 @@ async def test_canceled_appointment_does_not_block(client):
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "first@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
     })
     appointment_id = create_resp.json()["id"]
 
@@ -212,7 +217,7 @@ async def test_canceled_appointment_does_not_block(client):
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "second@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
     })
     assert response.status_code == 201
 
@@ -226,6 +231,6 @@ async def test_inactive_nail_type_cannot_be_booked(client):
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "test@example.com",
-        "start_time": "2026-08-10T10:00:00+00:00",
+        "start_time": at(MONDAY, 10),
     })
     assert response.status_code == 404

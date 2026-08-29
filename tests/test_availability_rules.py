@@ -1,4 +1,3 @@
-import pytest
 
 
 async def test_create_availability_rule(client):
@@ -21,7 +20,8 @@ async def test_create_rule_invalid_time_order(client):
         "start_time": "17:00:00",
         "end_time": "09:00:00",
     })
-    assert response.status_code == 400
+    # Schema-level validation (model_validator) rejects end <= start with 422.
+    assert response.status_code == 422
 
 
 async def test_create_rule_invalid_day_of_week(client):
@@ -30,7 +30,8 @@ async def test_create_rule_invalid_day_of_week(client):
         "start_time": "09:00:00",
         "end_time": "17:00:00",
     })
-    assert response.status_code == 400
+    # Field constraint (ge=0, le=6) rejects out-of-range day with 422.
+    assert response.status_code == 422
 
 
 async def test_get_all_availability_rules(client):

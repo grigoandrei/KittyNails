@@ -1,12 +1,13 @@
 """Tests for the Stripe Checkout integration."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from src.models.appointment import Status
+from tests.conftest import at, future_weekday
 
 
 class TestCheckoutSession:
@@ -62,7 +63,7 @@ class TestCheckoutSession:
         data = AppointmentCreate(
             nail_type_id=uuid4(),
             client_email="test@example.com",
-            start_time=datetime(2026, 8, 15, 10, 0, tzinfo=UTC),
+            start_time=datetime.now(UTC) + timedelta(days=7),
         )
 
         result = await create_checkout_session(data, mock_db)
@@ -300,7 +301,7 @@ class TestWebhookEndpoint:
 
     @patch("src.routers.checkout.stripe.Webhook.construct_event")
     async def test_webhook_invalid_signature(self, mock_construct, client):
-        from stripe.error import SignatureVerificationError
+        from stripe import SignatureVerificationError
 
         mock_construct.side_effect = SignatureVerificationError("bad sig", "sig_header")
 
@@ -317,10 +318,8 @@ class TestWebhookEndpoint:
 class TestCheckoutEndpoint:
     """Integration test for the checkout create-session endpoint."""
 
-    @pytest.fixture(autouse=True)
-    def setup_database(self):
-        """Override conftest's setup_database to avoid DB connection."""
-        yield
+    # NOTE: no setup_database override here — this test hits the real DB via the
+    # `client` fixture, so it needs conftest's table-creating fixture to run.
 
     @patch("src.services.stripe_service.stripe.checkout.Session.create")
     async def test_create_session_endpoint(self, mock_stripe_create, client):
@@ -346,7 +345,7 @@ class TestCheckoutEndpoint:
             json={
                 "nail_type_id": nail_type_id,
                 "client_email": "pay@example.com",
-                "start_time": "2026-08-10T10:00:00+00:00",
+                "start_time": at(future_weekday(0), 10),
             },
         )
 

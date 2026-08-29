@@ -1,13 +1,40 @@
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
+
 import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from src.database import Base, get_db
 from src.auth import get_current_admin
 from src.config import settings
-from src.main import app
+from src.database import Base, get_db
 from src.limiter import limiter
+from src.main import app
+
+BERLIN_TZ = ZoneInfo("Europe/Berlin")
+
+
+def _today() -> date:
+    return datetime.now(BERLIN_TZ).date()
+
+
+def future_weekday(weekday: int, min_ahead_days: int = 7) -> date:
+    """Next date on `weekday` (0=Mon) at least `min_ahead_days` in the future.
+
+    Tests hardcoded calendar dates that have since drifted into the past, which
+    trips the AppointmentCreate "must be in the future" validator (422). Compute
+    the date relative to today so tests stay valid over time. A week of lead time
+    keeps timestamps safely ahead of "now" regardless of the run time.
+    """
+    start = _today() + timedelta(days=min_ahead_days)
+    offset = (weekday - start.weekday()) % 7
+    return start + timedelta(days=offset)
+
+
+def at(target_date: date, hour: int, minute: int = 0) -> str:
+    """ISO-8601 UTC timestamp string for a date at the given hour/minute."""
+    return f"{target_date}T{hour:02d}:{minute:02d}:00+00:00"
 
 # Rate limits protect the real API but make the suite non-deterministic (a
 # session issues more booking/analysis POSTs than the hourly caps allow, all

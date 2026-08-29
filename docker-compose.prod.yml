@@ -75,6 +75,12 @@ services:
       - .env.prod
     environment:
       DATABASE_URL: postgresql+asyncpg://kitty:${DB_PASSWORD}@db:5432/kittynails
+    # The reminder is a batch loop, not a web server — nothing listens on :8000,
+    # so the Dockerfile's HTTP HEALTHCHECK would always fail and mark it
+    # unhealthy. Disable the inherited healthcheck; liveness of the hourly job
+    # is better observed via its logs than a container healthcheck.
+    healthcheck:
+      disable: true
     entrypoint: /bin/sh -c "while true; do python -c 'from src.reminder_handler import handler; handler({}, None)'; sleep 3600; done"
 
 volumes:

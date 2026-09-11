@@ -35,6 +35,9 @@ class Appointment(Base):
     quoted_price: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False)
     ai_confidence: Mapped[str | None] = mapped_column(String(20), nullable=True)
     ai_reasoning: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    # S3 object key of the client's uploaded nail photo. Nullable — Japanese
+    # Manicure bookings skip the analyze step and have no photo.
+    image_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     # Stripe fields
     stripe_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     stripe_payment_intent_id: Mapped[str | None] = mapped_column(

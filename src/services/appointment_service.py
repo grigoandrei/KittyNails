@@ -99,6 +99,7 @@ async def create_appointment(
         quoted_price=quoted_price,
         ai_confidence=data.ai_confidence,
         ai_reasoning=data.ai_reasoning,
+        image_key=data.image_key,
     )
     db.add(appointment)
     await db.commit()

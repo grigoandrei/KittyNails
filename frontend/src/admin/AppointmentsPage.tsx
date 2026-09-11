@@ -16,6 +16,7 @@ export function AppointmentsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const loadAppointments = () => {
     setLoading(true);
@@ -153,6 +154,9 @@ export function AppointmentsPage() {
                   Client
                 </th>
                 <th className="px-6 py-3 text-sm font-medium text-muted-foreground">
+                  Photo
+                </th>
+                <th className="px-6 py-3 text-sm font-medium text-muted-foreground">
                   Price
                 </th>
                 <th className="px-6 py-3 text-sm font-medium text-muted-foreground">
@@ -173,6 +177,24 @@ export function AppointmentsPage() {
                     {new Date(apt.start_time).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </td>
                   <td className="px-6 py-4 text-sm">{apt.client_email}</td>
+                  <td className="px-6 py-4">
+                    {apt.image_url ? (
+                      <button
+                        type="button"
+                        onClick={() => setLightboxUrl(apt.image_url ?? null)}
+                        className="cursor-pointer"
+                        aria-label="View nail photo"
+                      >
+                        <img
+                          src={apt.image_url}
+                          alt="Client nail inspiration"
+                          className="w-12 h-12 object-cover rounded-lg border border-border hover:opacity-80 transition-opacity"
+                        />
+                      </button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-sm">€{apt.quoted_price.toFixed(2)}</td>
                   <td className="px-6 py-4">
                     <span
@@ -211,6 +233,23 @@ export function AppointmentsPage() {
           </table></div>
         )}
       </div>
+
+      {/* Photo lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setLightboxUrl(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <img
+            src={lightboxUrl}
+            alt="Client nail inspiration"
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -276,6 +276,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
         start_time: selectedTime,
         ai_confidence: analysis?.confidence,
         ai_reasoning: analysis?.reasoning,
+        image_key: analysis?.image_key,
       });
       // Redirect to Stripe's hosted checkout page
       window.location.href = checkout_url;

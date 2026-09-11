@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from tests.conftest import at, future_weekday
 
 MONDAY = future_weekday(0)
@@ -108,3 +110,50 @@ async def test_list_appointments_pagination(client):
     response = await client.get("/api/admin/appointments/?skip=2&limit=2")
     assert response.status_code == 200
     assert len(response.json()) == 2
+
+
+@patch("src.routers.admin.appointment.generate_presigned_url")
+async def test_admin_listing_returns_presigned_image_url(mock_presign, client):
+    mock_presign.return_value = "https://signed.example/photo.jpg"
+    nail_type_id, design_tier_id = await create_test_categories(client)
+    await client.post("/api/admin/availability-rules", json={
+        "day_of_week": 0,
+        "start_time": "09:00:00",
+        "end_time": "18:00:00",
+    })
+    await client.post("/api/appointments", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "photo@example.com",
+        "start_time": at(MONDAY, 10),
+        "image_key": "nail-photos/abc123.jpg",
+    })
+
+    response = await client.get("/api/admin/appointments/")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["image_url"] == "https://signed.example/photo.jpg"
+    mock_presign.assert_called_once_with("nail-photos/abc123.jpg")
+
+
+@patch("src.routers.admin.appointment.generate_presigned_url")
+async def test_admin_listing_no_image_url_when_no_photo(mock_presign, client):
+    mock_presign.return_value = None
+    nail_type_id, _ = await create_test_categories(client)
+    await client.post("/api/admin/availability-rules", json={
+        "day_of_week": 0,
+        "start_time": "09:00:00",
+        "end_time": "18:00:00",
+    })
+    await client.post("/api/appointments", json={
+        "nail_type_id": nail_type_id,
+        "client_email": "nophoto@example.com",
+        "start_time": at(MONDAY, 10),
+    })
+
+    response = await client.get("/api/admin/appointments/")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["image_url"] is None

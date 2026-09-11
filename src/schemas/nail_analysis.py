@@ -96,3 +96,6 @@ class NailAnalysisResponse(BaseModel):
     reasoning: str
     length: str
     design_elements: DesignElements | None = None
+    # S3 object key of the uploaded photo, carried back to the client so it can
+    # be included in the booking payload. None if storage is unavailable.
+    image_key: str | None = None

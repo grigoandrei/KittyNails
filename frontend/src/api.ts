@@ -9,6 +9,7 @@ export interface NailAnalysisResponse {
   estimated_duration_minutes: number;
   confidence: string;
   reasoning: string;
+  image_key?: string | null;
 }
 
 export async function analyzeNails(image: File): Promise<NailAnalysisResponse> {
@@ -94,6 +95,7 @@ export interface CreateAppointmentPayload {
   start_time: string;
   ai_confidence?: string;
   ai_reasoning?: string;
+  image_key?: string | null;
 }
 
 export interface AppointmentResponse {
@@ -108,6 +110,7 @@ export interface AppointmentResponse {
   ai_confidence: string | null;
   ai_reasoning: string | null;
   created_at: string;
+  image_url?: string | null;
 }
 
 export async function createAppointment(

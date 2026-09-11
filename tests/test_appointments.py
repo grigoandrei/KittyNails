@@ -70,6 +70,36 @@ async def test_create_appointment_persists_ai_fields(client):
     assert data["ai_reasoning"] == "Clear photo of extended nails with simple design."
 
 
+async def test_create_appointment_persists_image_key(client):
+    nail_type_id, design_tier_id = await create_test_categories(client)
+    await setup_availability_for_day(client, 0)
+
+    response = await client.post("/api/appointments", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "test@example.com",
+        "start_time": at(MONDAY, 10),
+        "image_key": "nail-photos/abc123.jpg",
+    })
+    assert response.status_code == 201
+    # image_key is stored but not echoed on the public booking response;
+    # the admin listing exposes it as a presigned image_url instead.
+    assert "image_key" not in response.json()
+
+
+async def test_create_appointment_without_image_key(client):
+    """Japanese-Manicure-style booking with no photo still succeeds."""
+    nail_type_id, _ = await create_test_categories(client)
+    await setup_availability_for_day(client, 0)
+
+    response = await client.post("/api/appointments", json={
+        "nail_type_id": nail_type_id,
+        "client_email": "test@example.com",
+        "start_time": at(MONDAY, 10),
+    })
+    assert response.status_code == 201
+
+
 async def test_appointment_conflict_same_time(client):
     nail_type_id, design_tier_id = await create_test_categories(client)
     await setup_availability_for_day(client, 0)

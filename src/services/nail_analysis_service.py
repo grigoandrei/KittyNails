@@ -1,3 +1,4 @@
+import asyncio
 import base64
 from functools import lru_cache
 
@@ -15,6 +16,7 @@ from src.schemas.nail_analysis import (
     NailAnalysisResponse,
     NailClassification,
 )
+from src.services.s3_service import upload_nail_image
 
 # The image formats we accept from clients. Maps a detected/declared content
 # type to the media_type Bedrock expects.
@@ -316,6 +318,11 @@ async def analyze_nails(
     The AI never sees or produces prices — it only picks the classifications."""
     classification = _classify_image(image_bytes, media_type)
 
+    # Persist the photo so the artist can view it later in the admin panel. Done
+    # off the event loop (boto3 is blocking) and best-effort — a storage failure
+    # returns None and must not break analysis.
+    image_key = await asyncio.to_thread(upload_nail_image, image_bytes, media_type)
+
     nail_type_name = _map_to_nail_type_name(classification)
     design_tier_name = _map_to_design_tier_name(classification)
 
@@ -358,4 +365,5 @@ async def analyze_nails(
         reasoning=reasoning,
         length=classification.length.value,
         design_elements=None,
+        image_key=image_key,
     )

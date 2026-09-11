@@ -13,6 +13,9 @@ class AppointmentCreate(BaseModel):
     # appointment. Optional — a booking can be made without an analysis.
     ai_confidence: str | None = Field(default=None, max_length=20)
     ai_reasoning: str | None = Field(default=None, max_length=1000)
+    # S3 object key of the uploaded nail photo, carried over from the analyze
+    # step. Optional — Japanese Manicure and analysis-free bookings omit it.
+    image_key: str | None = Field(default=None, max_length=512)
 
     @field_validator("start_time")
     @classmethod
@@ -39,6 +42,9 @@ class AppointmentResponse(BaseModel):
     stripe_session_id: str | None = None
     stripe_payment_intent_id: str | None = None
     created_at: datetime
+    # Presigned S3 URL for the client's uploaded photo, populated for admin
+    # responses. None when there's no photo or storage is unavailable.
+    image_url: str | None = None
 
 
 class CheckoutSessionResponse(BaseModel):

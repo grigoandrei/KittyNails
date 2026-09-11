@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_DEPOSIT_AMOUNT: int = 1500  # cents (€15.00)
     FRONTEND_URL: str = "http://localhost:5173"
+    # S3 storage for client-uploaded nail photos
+    S3_BUCKET: str = ""
+    S3_REGION: str = "eu-central-1"
+    # How long presigned view URLs stay valid, in seconds (default 1 hour).
+    S3_PRESIGNED_URL_TTL: int = 3600
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

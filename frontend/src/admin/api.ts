@@ -243,6 +243,7 @@ export interface AdminAppointment {
   status: string;
   quoted_price: number;
   created_at: string;
+  image_url?: string | null;
 }
 
 export async function fetchAdminAppointments(params: {

@@ -96,6 +96,7 @@ export interface CreateAppointmentPayload {
   ai_confidence?: string;
   ai_reasoning?: string;
   image_key?: string | null;
+  needs_removal?: boolean;
 }
 
 export interface AppointmentResponse {
@@ -111,6 +112,7 @@ export interface AppointmentResponse {
   ai_reasoning: string | null;
   created_at: string;
   image_url?: string | null;
+  needs_removal?: boolean;
 }
 
 export async function createAppointment(

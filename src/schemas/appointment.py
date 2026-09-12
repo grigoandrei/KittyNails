@@ -16,6 +16,9 @@ class AppointmentCreate(BaseModel):
     # S3 object key of the uploaded nail photo, carried over from the analyze
     # step. Optional — Japanese Manicure and analysis-free bookings omit it.
     image_key: str | None = Field(default=None, max_length=512)
+    # Client requested removal of existing nails — adds a flat surcharge
+    # (NAIL_REMOVAL_PRICE) to the price, applied server-side. No duration change.
+    needs_removal: bool = False
 
     @field_validator("start_time")
     @classmethod
@@ -42,6 +45,7 @@ class AppointmentResponse(BaseModel):
     stripe_session_id: str | None = None
     stripe_payment_intent_id: str | None = None
     created_at: datetime
+    needs_removal: bool = False
     # Presigned S3 URL for the client's uploaded photo, populated for admin
     # responses. None when there's no photo or storage is unavailable.
     image_url: str | None = None

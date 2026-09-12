@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import settings
 from src.exceptions import ConflictError, NotFoundError, ValidationError
 from src.models.appointment import Appointment, Status
 from src.models.availability_rules import AvailabilityRules
@@ -43,6 +44,11 @@ async def create_appointment(
     quoted_price = float(nail_type.price) + (
         float(design_tier.price) if design_tier else 0
     )
+
+    # Optional flat surcharge for removing the client's existing nails.
+    # Price only — it does not change the appointment duration.
+    if data.needs_removal:
+        quoted_price += float(settings.NAIL_REMOVAL_PRICE)
 
     end_time = data.start_time + timedelta(minutes=total_minutes)
 
@@ -100,6 +106,7 @@ async def create_appointment(
         ai_confidence=data.ai_confidence,
         ai_reasoning=data.ai_reasoning,
         image_key=data.image_key,
+        needs_removal=data.needs_removal,
     )
     db.add(appointment)
     await db.commit()

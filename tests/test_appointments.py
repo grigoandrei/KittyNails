@@ -100,6 +100,72 @@ async def test_create_appointment_without_image_key(client):
     assert response.status_code == 201
 
 
+async def test_create_appointment_with_removal_adds_15(client):
+    nail_type_id, design_tier_id = await create_test_categories(client)
+    await setup_availability_for_day(client, 0)
+
+    response = await client.post("/api/appointments", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "test@example.com",
+        "start_time": at(MONDAY, 10),
+        "needs_removal": True,
+    })
+    assert response.status_code == 201
+    data = response.json()
+    # Base 30 (nail) + 15 (design) + 15 (removal) = 60
+    assert data["quoted_price"] == 60.00
+    assert data["needs_removal"] is True
+
+
+async def test_create_appointment_without_removal_default(client):
+    nail_type_id, design_tier_id = await create_test_categories(client)
+    await setup_availability_for_day(client, 0)
+
+    response = await client.post("/api/appointments", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "test@example.com",
+        "start_time": at(MONDAY, 10),
+    })
+    assert response.status_code == 201
+    data = response.json()
+    # No removal → base 30 + 15 = 45, and needs_removal defaults to False
+    assert data["quoted_price"] == 45.00
+    assert data["needs_removal"] is False
+
+
+async def test_removal_does_not_change_duration(client):
+    """Removal is price-only — the end_time must match a no-removal booking."""
+    nail_type_id, design_tier_id = await create_test_categories(client)
+    await setup_availability_for_day(client, 0)
+
+    with_removal = await client.post("/api/appointments", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "a@example.com",
+        "start_time": at(MONDAY, 10),
+        "needs_removal": True,
+    })
+    # A different day/time to avoid a conflict, same service.
+    no_removal = await client.post("/api/appointments", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "b@example.com",
+        "start_time": at(MONDAY, 14),
+    })
+    assert with_removal.status_code == 201
+    assert no_removal.status_code == 201
+
+    def minutes(resp):
+        from datetime import datetime
+        s = datetime.fromisoformat(resp.json()["start_time"])
+        e = datetime.fromisoformat(resp.json()["end_time"])
+        return (e - s).total_seconds() / 60
+
+    assert minutes(with_removal) == minutes(no_removal)
+
+
 async def test_appointment_conflict_same_time(client):
     nail_type_id, design_tier_id = await create_test_categories(client)
     await setup_availability_for_day(client, 0)

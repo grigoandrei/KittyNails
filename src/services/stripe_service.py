@@ -44,6 +44,9 @@ async def create_checkout_session(
         if design_tier:
             service_name += f" — {design_tier.name}"
 
+    if appointment.needs_removal:
+        service_name += " (+ nail removal)"
+
     # Create Stripe Checkout Session
     session = stripe.checkout.Session.create(
         mode="payment",

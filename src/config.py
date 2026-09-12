@@ -72,6 +72,9 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_DEPOSIT_AMOUNT: int = 1500  # cents (€15.00)
+    # Flat surcharge (euros) added to an appointment when the client requests
+    # removal of existing nails at booking. Price only — no duration change.
+    NAIL_REMOVAL_PRICE: float = 15.00
     FRONTEND_URL: str = "http://localhost:5173"
     # S3 storage for client-uploaded nail photos
     S3_BUCKET: str = ""

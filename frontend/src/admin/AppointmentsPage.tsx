@@ -195,7 +195,14 @@ export function AppointmentsPage() {
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-sm">€{apt.quoted_price.toFixed(2)}</td>
+                  <td className="px-6 py-4 text-sm">
+                    €{apt.quoted_price.toFixed(2)}
+                    {apt.needs_removal && (
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
+                        + removal
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <span
                       className={`text-xs px-2 py-1 rounded-full font-medium ${statusBadgeClass(apt.status)}`}

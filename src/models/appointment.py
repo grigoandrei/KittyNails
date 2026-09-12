@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -38,6 +38,11 @@ class Appointment(Base):
     # S3 object key of the client's uploaded nail photo. Nullable — Japanese
     # Manicure bookings skip the analyze step and have no photo.
     image_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Client requested removal of existing nails — flat surcharge applied at
+    # booking (price only, no duration change).
+    needs_removal: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     # Stripe fields
     stripe_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     stripe_payment_intent_id: Mapped[str | None] = mapped_column(

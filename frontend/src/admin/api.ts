@@ -244,6 +244,7 @@ export interface AdminAppointment {
   quoted_price: number;
   created_at: string;
   image_url?: string | null;
+  needs_removal?: boolean;
 }
 
 export async function fetchAdminAppointments(params: {

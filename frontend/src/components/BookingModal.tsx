@@ -20,6 +20,10 @@ function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
 }
 
+// Flat surcharge for removing existing nails. Mirrors backend NAIL_REMOVAL_PRICE;
+// the backend is authoritative for the actual charge.
+const REMOVAL_PRICE = 15;
+
 type Step = "photo" | "estimate" | "datetime" | "confirm";
 
 interface ClientInfo {
@@ -58,6 +62,9 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
   const [slotsError, setSlotsError] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
+  // Nail removal add-on (flat surcharge, price only)
+  const [needsRemoval, setNeedsRemoval] = useState(false);
+
   // Submission
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -84,6 +91,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
       setJapaneseManicure(null);
       setSelectedDate(null);
       setSelectedTime(null);
+      setNeedsRemoval(false);
       setCalendarMonth(startOfMonth(new Date()));
       setAvailableDates([]);
       setTimeSlots([]);
@@ -277,6 +285,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
         ai_confidence: analysis?.confidence,
         ai_reasoning: analysis?.reasoning,
         image_key: analysis?.image_key,
+        needs_removal: needsRemoval,
       });
       // Redirect to Stripe's hosted checkout page
       window.location.href = checkout_url;
@@ -383,6 +392,8 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
               japaneseManicure={japaneseManicure}
               selectedTime={selectedTime}
               submitting={submitting}
+              needsRemoval={needsRemoval}
+              onNeedsRemovalChange={setNeedsRemoval}
               register={register}
               errors={errors}
               onSubmit={handleSubmit(confirmBooking)}
@@ -804,11 +815,13 @@ function DateTimeStep({ calendarMonth, canGoPrevMonth, datesLoading, datesError,
   );
 }
 
-function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, register, errors, onSubmit, onBack }: {
+function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, needsRemoval, onNeedsRemovalChange, register, errors, onSubmit, onBack }: {
   analysis: NailAnalysisResponse | null;
   japaneseManicure: NailType | null;
   selectedTime: string | null;
   submitting: boolean;
+  needsRemoval: boolean;
+  onNeedsRemovalChange: (value: boolean) => void;
   register: ReturnType<typeof useForm<ClientInfo>>["register"];
   errors: ReturnType<typeof useForm<ClientInfo>>["formState"]["errors"];
   onSubmit: (e: React.FormEvent) => void;
@@ -840,6 +853,18 @@ function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, reg
           <span className="text-muted-foreground">Price</span>
           <span className="font-medium">€{price.toFixed(2)}</span>
         </div>
+        {needsRemoval && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Nail removal</span>
+            <span className="font-medium">+€{REMOVAL_PRICE.toFixed(2)}</span>
+          </div>
+        )}
+        {needsRemoval && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Total</span>
+            <span className="font-semibold">€{(price + REMOVAL_PRICE).toFixed(2)}</span>
+          </div>
+        )}
         <div className="border-t border-border my-2" />
         <div className="flex justify-between">
           <span className="text-muted-foreground">Date & Time</span>
@@ -853,6 +878,22 @@ function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, reg
           <span className="font-semibold text-primary">€15.00</span>
         </div>
       </div>
+
+      {/* Nail removal add-on */}
+      <label className="mb-6 flex items-start gap-3 cursor-pointer rounded-lg border border-border p-3 hover:bg-secondary transition-colors">
+        <input
+          type="checkbox"
+          checked={needsRemoval}
+          onChange={(e) => onNeedsRemovalChange(e.target.checked)}
+          className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+        />
+        <span className="text-sm">
+          I also require nail removal as I have my nails done already
+          <span className="block text-xs text-muted-foreground mt-0.5">
+            Adds €{REMOVAL_PRICE.toFixed(2)} to the total.
+          </span>
+        </span>
+      </label>
 
       {/* Deposit note */}
       <div className="mb-6 flex items-start gap-2 text-xs text-muted-foreground bg-blue-50 rounded-lg p-3">

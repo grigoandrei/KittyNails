@@ -16,7 +16,7 @@ MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 
 @router.post("/api/analyze-nails", response_model=NailAnalysisResponse)
-@limiter.limit("5/hour")
+@limiter.limit("10/hour")
 async def analyze(
     request: Request,
     image: UploadFile = File(...),

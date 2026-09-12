@@ -15,6 +15,33 @@ import {
 
 const STATUS_OPTIONS = ["", "BOOKED", "CANCELLED", "NO_SHOW", "COMPLETED"];
 
+/**
+ * Convert a `datetime-local` value ("YYYY-MM-DDTHH:mm", Berlin wall-clock)
+ * into an ISO string carrying Berlin's UTC offset for that date, e.g.
+ * "2026-09-14T10:00:00+02:00" (CEST) or "...+01:00" (CET). This matches the
+ * public booking flow and keeps the backend's Berlin-local working-hours check
+ * correct. Using toISOString() (UTC) would shift the time and fail that check.
+ */
+function toBerlinISO(localValue: string): string {
+  // Interpret the wall-clock as if it were UTC to get a stable instant, then
+  // measure how Berlin renders that instant to derive the offset.
+  const asUtc = new Date(`${localValue}:00Z`);
+  const berlinParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Berlin",
+    hour: "numeric",
+    hour12: false,
+  }).formatToParts(asUtc);
+  const berlinHour = Number(berlinParts.find((p) => p.type === "hour")?.value);
+  // Difference between Berlin's rendered hour and the UTC hour gives the offset.
+  let offsetHours = berlinHour - asUtc.getUTCHours();
+  if (offsetHours > 12) offsetHours -= 24;
+  if (offsetHours < -12) offsetHours += 24;
+  const sign = offsetHours >= 0 ? "+" : "-";
+  const hh = String(Math.abs(offsetHours)).padStart(2, "0");
+  return `${localValue}:00${sign}${hh}:00`;
+}
+
+
 export function AppointmentsPage() {
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,12 +138,16 @@ export function AppointmentsPage() {
     }
     setAddSubmitting(true);
     try {
-      // datetime-local yields "YYYY-MM-DDTHH:mm" (no tz). Send as local wall time.
+      // The datetime-local value is Berlin wall-clock (the artist is in Berlin).
+      // Send it with Berlin's UTC offset for that date so the backend sees the
+      // correct local time in its working-hours check — matching the public
+      // booking flow, which sends Berlin-offset slot times. Sending UTC
+      // (toISOString) would shift 10:00 → 08:00 and fail the hours check.
       await createAdminAppointment({
         nail_type_id: form.nail_type_id,
         design_tier_id: form.design_tier_id || null,
         client_email: form.client_email,
-        start_time: new Date(form.start_time).toISOString(),
+        start_time: toBerlinISO(form.start_time),
         needs_removal: form.needs_removal,
       });
       toast.success("Appointment created");

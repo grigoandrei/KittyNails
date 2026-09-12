@@ -14,6 +14,31 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+/**
+ * Normalize a FastAPI error body into a display string.
+ * `detail` may be a plain string (our HTTPException/ValidationError cases) or,
+ * for 422 responses, an array of Pydantic error objects
+ * ({ type, loc, msg, input, ctx }). Rendering that array/object directly in
+ * React throws "Objects are not valid as a React child" (error #31), so we
+ * always collapse it to a string here.
+ */
+function extractErrorMessage(error: unknown): string {
+  if (!error || typeof error !== "object") return "Request failed";
+  const detail = (error as { detail?: unknown }).detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((d) =>
+        d && typeof d === "object" && "msg" in d ? String((d as { msg: unknown }).msg) : null
+      )
+      .filter(Boolean);
+    if (msgs.length) return msgs.join("; ");
+  }
+  const message = (error as { message?: unknown }).message;
+  if (typeof message === "string") return message;
+  return "Request failed";
+}
+
 async function adminFetch(
   url: string,
   options: RequestInit = {}
@@ -34,7 +59,7 @@ async function adminFetch(
   }
   if (!response.ok) {
     const error = await response.json().catch(() => null);
-    const message = error?.detail || error?.message || "Request failed";
+    const message = extractErrorMessage(error);
     toast.error(message);
     throw new Error(message);
   }

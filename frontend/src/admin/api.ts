@@ -265,6 +265,7 @@ export interface AdminAppointment {
   design_tier_id: string;
   client_email: string;
   start_time: string;
+  end_time: string;
   status: string;
   quoted_price: number;
   created_at: string;

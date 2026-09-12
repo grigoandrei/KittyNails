@@ -888,7 +888,7 @@ function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, nee
           className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
         />
         <span className="text-sm">
-          I also require nail removal as I have my nails done already
+          I also require nail removal as I have my nails done already by another artist.
           <span className="block text-xs text-muted-foreground mt-0.5">
             Adds €{REMOVAL_PRICE.toFixed(2)} to the total.
           </span>

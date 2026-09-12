@@ -16,6 +16,22 @@ import {
 const STATUS_OPTIONS = ["", "BOOKED", "CANCELLED", "NO_SHOW", "COMPLETED"];
 
 /**
+ * Human-readable duration between two ISO timestamps, e.g. "3h", "90 min",
+ * "1h 30m". Duration is end - start (both stored on the appointment).
+ */
+function formatDuration(startIso: string, endIso: string): string {
+  const mins = Math.round(
+    (new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000
+  );
+  if (!Number.isFinite(mins) || mins <= 0) return "—";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+/**
  * Convert a `datetime-local` value ("YYYY-MM-DDTHH:mm", Berlin wall-clock)
  * into an ISO string carrying Berlin's UTC offset for that date, e.g.
  * "2026-09-14T10:00:00+02:00" (CEST) or "...+01:00" (CET). This matches the
@@ -252,6 +268,9 @@ export function AppointmentsPage() {
                   Date/Time
                 </th>
                 <th className="px-6 py-3 text-sm font-medium text-muted-foreground">
+                  Duration
+                </th>
+                <th className="px-6 py-3 text-sm font-medium text-muted-foreground">
                   Client
                 </th>
                 <th className="px-6 py-3 text-sm font-medium text-muted-foreground">
@@ -276,6 +295,9 @@ export function AppointmentsPage() {
                 >
                   <td className="px-6 py-4 text-sm">
                     {new Date(apt.start_time).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-muted-foreground">
+                    {formatDuration(apt.start_time, apt.end_time)}
                   </td>
                   <td className="px-6 py-4 text-sm">
                     {apt.client_email}

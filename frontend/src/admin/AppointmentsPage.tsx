@@ -5,7 +5,12 @@ import {
   cancelAppointment,
   noShowAppointment,
   completeAppointment,
+  createAdminAppointment,
+  fetchNailTypes,
+  fetchDesignTiers,
   type AdminAppointment,
+  type NailType,
+  type DesignTier,
 } from "./api";
 
 const STATUS_OPTIONS = ["", "BOOKED", "CANCELLED", "NO_SHOW", "COMPLETED"];
@@ -17,6 +22,19 @@ export function AppointmentsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  // Add-appointment modal
+  const [showAdd, setShowAdd] = useState(false);
+  const [nailTypes, setNailTypes] = useState<NailType[]>([]);
+  const [designTiers, setDesignTiers] = useState<DesignTier[]>([]);
+  const [addSubmitting, setAddSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    nail_type_id: "",
+    design_tier_id: "",
+    client_email: "",
+    start_time: "",
+    needs_removal: false,
+  });
 
   const loadAppointments = () => {
     setLoading(true);
@@ -67,6 +85,50 @@ export function AppointmentsPage() {
     }
   };
 
+  const openAddModal = async () => {
+    setForm({
+      nail_type_id: "",
+      design_tier_id: "",
+      client_email: "",
+      start_time: "",
+      needs_removal: false,
+    });
+    setShowAdd(true);
+    try {
+      const [nt, dt] = await Promise.all([fetchNailTypes(), fetchDesignTiers()]);
+      setNailTypes(nt.filter((t) => t.is_active));
+      setDesignTiers(dt.filter((t) => t.is_active));
+    } catch {
+      // toasted by adminFetch
+    }
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.nail_type_id || !form.client_email || !form.start_time) {
+      toast.error("Nail type, email, and date/time are required.");
+      return;
+    }
+    setAddSubmitting(true);
+    try {
+      // datetime-local yields "YYYY-MM-DDTHH:mm" (no tz). Send as local wall time.
+      await createAdminAppointment({
+        nail_type_id: form.nail_type_id,
+        design_tier_id: form.design_tier_id || null,
+        client_email: form.client_email,
+        start_time: new Date(form.start_time).toISOString(),
+        needs_removal: form.needs_removal,
+      });
+      toast.success("Appointment created");
+      setShowAdd(false);
+      loadAppointments();
+    } catch {
+      // toasted
+    } finally {
+      setAddSubmitting(false);
+    }
+  };
+
   const statusBadgeClass = (status: string) => {
     switch (status) {
       case "BOOKED":
@@ -84,7 +146,15 @@ export function AppointmentsPage() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6">Appointments</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold">Appointments</h2>
+        <button
+          onClick={openAddModal}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
+        >
+          + Add Appointment
+        </button>
+      </div>
 
       {/* Filters */}
       <div className="bg-card border border-border rounded-xl p-4 mb-6">
@@ -176,7 +246,14 @@ export function AppointmentsPage() {
                   <td className="px-6 py-4 text-sm">
                     {new Date(apt.start_time).toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </td>
-                  <td className="px-6 py-4 text-sm">{apt.client_email}</td>
+                  <td className="px-6 py-4 text-sm">
+                    {apt.client_email}
+                    {apt.source === "instagram" && (
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 font-medium">
+                        Instagram
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     {apt.image_url ? (
                       <button
@@ -240,6 +317,113 @@ export function AppointmentsPage() {
           </table></div>
         )}
       </div>
+
+      {/* Add appointment modal */}
+      {showAdd && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !addSubmitting && setShowAdd(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handleAddSubmit}
+            className="bg-card border border-border rounded-xl p-6 w-full max-w-md space-y-4"
+          >
+            <h3 className="text-lg font-bold">Add Appointment</h3>
+            <p className="text-xs text-muted-foreground">
+              For clients who booked via Instagram. Creates a confirmed booking
+              with no deposit and no confirmation email.
+            </p>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Nail type *</label>
+              <select
+                value={form.nail_type_id}
+                onChange={(e) => setForm({ ...form, nail_type_id: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                required
+              >
+                <option value="">Select…</option>
+                {nailTypes.map((nt) => (
+                  <option key={nt.id} value={nt.id}>
+                    {nt.name} — €{nt.price.toFixed(2)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Design tier (optional)
+              </label>
+              <select
+                value={form.design_tier_id}
+                onChange={(e) => setForm({ ...form, design_tier_id: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+              >
+                <option value="">None</option>
+                {designTiers.map((dt) => (
+                  <option key={dt.id} value={dt.id}>
+                    {dt.name} — +€{dt.price.toFixed(2)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Client email *</label>
+              <input
+                type="email"
+                value={form.client_email}
+                onChange={(e) => setForm({ ...form, client_email: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Date & time *</label>
+              <input
+                type="datetime-local"
+                value={form.start_time}
+                onChange={(e) => setForm({ ...form, start_time: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                required
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.needs_removal}
+                onChange={(e) => setForm({ ...form, needs_removal: e.target.checked })}
+                className="h-4 w-4 accent-primary cursor-pointer"
+              />
+              Needs nail removal (+€15)
+            </label>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                disabled={addSubmitting}
+                className="px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-secondary transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={addSubmitting}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
+              >
+                {addSubmitting ? "Creating…" : "Create"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Photo lightbox */}
       {lightboxUrl && (

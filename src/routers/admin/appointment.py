@@ -8,8 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth import get_current_admin
 from src.database import get_db
 from src.models.appointment import Appointment, Status
-from src.schemas.appointment import AppointmentResponse
+from src.schemas.appointment import AppointmentCreate, AppointmentResponse
 from src.services.appointment_service import (
+    create_appointment,
     list_appointments,
     update_appointment_status,
 )
@@ -22,6 +23,24 @@ def _to_response(appointment: Appointment, image_url: str | None) -> Appointment
     response = AppointmentResponse.model_validate(appointment)
     response.image_url = image_url
     return response
+
+
+@router.post("/", response_model=AppointmentResponse, status_code=201)
+async def create_manual_appointment(
+    data: AppointmentCreate,
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+):
+    """Admin-created booking for a client who arranged via Instagram.
+
+    Creates a BOOKED appointment directly (no Stripe deposit) with
+    source="instagram". Goes through the same slot/conflict/working-hours
+    logic as public bookings. No confirmation email is sent — the client
+    already coordinated with the artist directly.
+    """
+    appointment = await create_appointment(
+        data, db, status=Status.BOOKED, source="instagram"
+    )
+    return _to_response(appointment, None)
 
 
 @router.get("/", response_model=list[AppointmentResponse])

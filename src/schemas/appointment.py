@@ -46,6 +46,7 @@ class AppointmentResponse(BaseModel):
     stripe_payment_intent_id: str | None = None
     created_at: datetime
     needs_removal: bool = False
+    source: str = "web"
     # Presigned S3 URL for the client's uploaded photo, populated for admin
     # responses. None when there's no photo or storage is unavailable.
     image_url: str | None = None

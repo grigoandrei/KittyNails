@@ -157,3 +157,83 @@ async def test_admin_listing_no_image_url_when_no_photo(mock_presign, client):
     data = response.json()
     assert len(data) == 1
     assert data[0]["image_url"] is None
+
+
+async def _setup_availability(client):
+    await client.post("/api/admin/availability-rules", json={
+        "day_of_week": 0,
+        "start_time": "09:00:00",
+        "end_time": "18:00:00",
+    })
+
+
+async def test_admin_manual_booking_creates_booked_instagram(client):
+    nail_type_id, design_tier_id = await create_test_categories(client)
+    await _setup_availability(client)
+
+    response = await client.post("/api/admin/appointments/", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "iguser@example.com",
+        "start_time": at(MONDAY, 11),
+    })
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "BOOKED"
+    assert data["source"] == "instagram"
+    # 30 (nail) + 15 (design) = 45, no removal
+    assert data["quoted_price"] == 45.00
+
+
+async def test_admin_manual_booking_with_removal(client):
+    nail_type_id, design_tier_id = await create_test_categories(client)
+    await _setup_availability(client)
+
+    response = await client.post("/api/admin/appointments/", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "iguser@example.com",
+        "start_time": at(MONDAY, 11),
+        "needs_removal": True,
+    })
+    assert response.status_code == 201
+    data = response.json()
+    assert data["needs_removal"] is True
+    assert data["quoted_price"] == 60.00  # 45 + 15 removal
+
+
+async def test_admin_manual_booking_respects_conflicts(client):
+    nail_type_id, design_tier_id = await create_test_categories(client)
+    await _setup_availability(client)
+
+    first = await client.post("/api/admin/appointments/", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "a@example.com",
+        "start_time": at(MONDAY, 11),
+    })
+    assert first.status_code == 201
+
+    # Same slot → conflict
+    second = await client.post("/api/admin/appointments/", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "b@example.com",
+        "start_time": at(MONDAY, 11),
+    })
+    assert second.status_code == 409
+
+
+async def test_web_booking_has_source_web(client):
+    """Public bookings default to source=web."""
+    nail_type_id, design_tier_id = await create_test_categories(client)
+    await _setup_availability(client)
+
+    resp = await client.post("/api/appointments", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "web@example.com",
+        "start_time": at(MONDAY, 12),
+    })
+    assert resp.status_code == 201
+    assert resp.json()["source"] == "web"

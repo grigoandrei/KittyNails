@@ -245,6 +245,21 @@ export interface AdminAppointment {
   created_at: string;
   image_url?: string | null;
   needs_removal?: boolean;
+  source?: string;
+}
+
+export async function createAdminAppointment(data: {
+  nail_type_id: string;
+  design_tier_id?: string | null;
+  client_email: string;
+  start_time: string;
+  needs_removal?: boolean;
+}): Promise<AdminAppointment> {
+  const res = await adminFetch("/api/admin/appointments/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return res.json();
 }
 
 export async function fetchAdminAppointments(params: {

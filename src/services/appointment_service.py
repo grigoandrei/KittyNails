@@ -18,6 +18,7 @@ async def create_appointment(
     data: AppointmentCreate,
     db: AsyncSession,
     status: Status = Status.BOOKED,
+    source: str = "web",
 ) -> Appointment:
     result = await db.execute(select(NailType).where(NailType.id == data.nail_type_id))
     nail_type = result.scalar_one_or_none()
@@ -107,6 +108,7 @@ async def create_appointment(
         ai_reasoning=data.ai_reasoning,
         image_key=data.image_key,
         needs_removal=data.needs_removal,
+        source=source,
     )
     db.add(appointment)
     await db.commit()

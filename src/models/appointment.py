@@ -43,6 +43,11 @@ class Appointment(Base):
     needs_removal: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    # How the appointment was created: "web" (client self-booked via the site)
+    # or "instagram" (admin entered it manually for a client who booked via IG).
+    source: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="web", server_default="web"
+    )
     # Stripe fields
     stripe_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     stripe_payment_intent_id: Mapped[str | None] = mapped_column(

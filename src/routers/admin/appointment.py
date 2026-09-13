@@ -8,10 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth import get_current_admin
 from src.database import get_db
 from src.models.appointment import Appointment, Status
-from src.schemas.appointment import AppointmentCreate, AppointmentResponse
+from src.schemas.appointment import (
+    AppointmentCreate,
+    AppointmentResponse,
+    AppointmentUpdate,
+)
 from src.services.appointment_service import (
     create_appointment,
     list_appointments,
+    update_appointment,
     update_appointment_status,
 )
 from src.services.s3_service import generate_presigned_url
@@ -41,6 +46,23 @@ async def create_manual_appointment(
         data, db, status=Status.BOOKED, source="instagram"
     )
     return _to_response(appointment, None)
+
+
+@router.patch("/{appointment_id}", response_model=AppointmentResponse)
+async def edit_appointment(
+    appointment_id: UUID,
+    data: AppointmentUpdate,
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+):
+    """Edit an appointment's start time, duration, and/or removal flag.
+
+    Duration is an explicit override (end_time = start + duration); price is
+    re-derived from the service + removal. Re-runs availability / hours /
+    blocked / conflict checks (excluding this appointment).
+    """
+    appointment = await update_appointment(db, appointment_id, data)
+    image_url = await asyncio.to_thread(generate_presigned_url, appointment.image_key)
+    return _to_response(appointment, image_url)
 
 
 @router.get("/", response_model=list[AppointmentResponse])

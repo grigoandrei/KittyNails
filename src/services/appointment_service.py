@@ -11,7 +11,7 @@ from src.models.availability_rules import AvailabilityRules
 from src.models.blocked_time import BlockedTime
 from src.models.design_tier import DesignTier
 from src.models.nail_type import NailType
-from src.schemas.appointment import AppointmentCreate
+from src.schemas.appointment import AppointmentCreate, AppointmentUpdate
 
 
 async def create_appointment(
@@ -111,6 +111,107 @@ async def create_appointment(
         source=source,
     )
     db.add(appointment)
+    await db.commit()
+    await db.refresh(appointment)
+    return appointment
+
+
+async def update_appointment(
+    db: AsyncSession,
+    appointment_id: UUID,
+    data: AppointmentUpdate,
+) -> Appointment:
+    """Admin edit of an existing appointment (Model A).
+
+    Applies partial changes (start_time, duration override, needs_removal),
+    recomputes end_time and re-derives price from the current service rows +
+    the removal flag, then re-runs availability / working-hours / blocked /
+    conflict checks — excluding this appointment itself — before saving.
+    """
+    result = await db.execute(
+        select(Appointment).where(Appointment.id == appointment_id)
+    )
+    appointment = result.scalar_one_or_none()
+    if not appointment:
+        raise NotFoundError("Appointment not found!")
+
+    # Resolve the effective values (new value if provided, else current).
+    new_start = data.start_time if data.start_time is not None else appointment.start_time
+    new_needs_removal = (
+        data.needs_removal
+        if data.needs_removal is not None
+        else appointment.needs_removal
+    )
+
+    # Duration: explicit override if given, else keep the current duration.
+    if data.duration_minutes is not None:
+        duration = timedelta(minutes=data.duration_minutes)
+    else:
+        duration = appointment.end_time - appointment.start_time
+    new_end = new_start + duration
+
+    # Re-derive price from the (unchanged) service rows + removal flag.
+    nt_result = await db.execute(
+        select(NailType).where(NailType.id == appointment.nail_type_id)
+    )
+    nail_type = nt_result.scalar_one_or_none()
+    if not nail_type:
+        raise NotFoundError("Nail type not available!")
+    quoted_price = float(nail_type.price)
+
+    if appointment.design_tier_id:
+        dt_result = await db.execute(
+            select(DesignTier).where(DesignTier.id == appointment.design_tier_id)
+        )
+        design_tier = dt_result.scalar_one_or_none()
+        if design_tier:
+            quoted_price += float(design_tier.price)
+
+    if new_needs_removal:
+        quoted_price += float(settings.NAIL_REMOVAL_PRICE)
+
+    # Working hours for the (possibly new) day.
+    rules_result = await db.execute(
+        select(AvailabilityRules).where(
+            AvailabilityRules.day_of_week == new_start.weekday()
+        )
+    )
+    rules = rules_result.scalars().all()
+    if not rules:
+        raise ValidationError("Salon is closed on this day!")
+
+    is_within_hours = any(
+        rule.start_time <= new_start.time() and rule.end_time >= new_end.time()
+        for rule in rules
+    )
+    if not is_within_hours:
+        raise ValidationError("Appointment is outside salon working hours!")
+
+    # Blocked times.
+    blocked_result = await db.execute(
+        select(BlockedTime).where(
+            BlockedTime.start_time < new_end, BlockedTime.end_time > new_start
+        )
+    )
+    if blocked_result.scalars().first():
+        raise ConflictError("This time slot is blocked!")
+
+    # Conflicts with other appointments — exclude this one.
+    conflict_result = await db.execute(
+        select(Appointment).where(
+            Appointment.id != appointment_id,
+            Appointment.status.in_([Status.BOOKED, Status.PENDING_PAYMENT]),
+            Appointment.start_time < new_end,
+            Appointment.end_time > new_start,
+        )
+    )
+    if conflict_result.scalars().first():
+        raise ConflictError("Time slot is already booked!")
+
+    appointment.start_time = new_start
+    appointment.end_time = new_end
+    appointment.needs_removal = new_needs_removal
+    appointment.quoted_price = quoted_price
     await db.commit()
     await db.refresh(appointment)
     return appointment

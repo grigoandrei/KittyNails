@@ -288,6 +288,21 @@ export async function createAdminAppointment(data: {
   return res.json();
 }
 
+export async function updateAdminAppointment(
+  id: string,
+  data: {
+    start_time?: string;
+    duration_minutes?: number;
+    needs_removal?: boolean;
+  }
+): Promise<AdminAppointment> {
+  const res = await adminFetch(`/api/admin/appointments/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
 export async function fetchAdminAppointments(params: {
   status?: string;
   date_from?: string;

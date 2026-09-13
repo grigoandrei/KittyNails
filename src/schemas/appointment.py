@@ -29,6 +29,25 @@ class AppointmentCreate(BaseModel):
         return start_time
 
 
+class AppointmentUpdate(BaseModel):
+    """Admin edit of an existing appointment (partial). Model A: duration is an
+    explicit override; price is re-derived from the service + needs_removal."""
+
+    start_time: datetime | None = None
+    duration_minutes: int | None = Field(default=None, gt=0, le=600)
+    needs_removal: bool | None = None
+
+    @field_validator("start_time")
+    @classmethod
+    def is_in_the_future(cls, start_time: datetime | None) -> datetime | None:
+        if start_time is None:
+            return start_time
+        now = datetime.now(tz=start_time.tzinfo)
+        if start_time <= now:
+            raise ValueError("Date cannot be in the past!")
+        return start_time
+
+
 class AppointmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

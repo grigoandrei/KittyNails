@@ -6,6 +6,7 @@ import {
   noShowAppointment,
   completeAppointment,
   createAdminAppointment,
+  updateAdminAppointment,
   fetchNailTypes,
   fetchDesignTiers,
   type AdminAppointment,
@@ -29,6 +30,26 @@ function formatDuration(startIso: string, endIso: string): string {
   if (h === 0) return `${m} min`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
+}
+
+/**
+ * Convert a stored UTC ISO timestamp into a Berlin wall-clock value suitable
+ * for a `datetime-local` input ("YYYY-MM-DDTHH:mm"). Used to prefill the edit
+ * form so the admin sees/edits Berlin local time.
+ */
+function toBerlinLocalInput(utcIso: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(utcIso));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  // en-CA renders date as YYYY-MM-DD; combine with HH:mm.
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 }
 
 /**
@@ -76,6 +97,15 @@ export function AppointmentsPage() {
     design_tier_id: "",
     client_email: "",
     start_time: "",
+    needs_removal: false,
+  });
+
+  // Edit-appointment modal
+  const [editing, setEditing] = useState<AdminAppointment | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editForm, setEditForm] = useState({
+    start_time: "",
+    duration_minutes: 0,
     needs_removal: false,
   });
 
@@ -173,6 +203,42 @@ export function AppointmentsPage() {
       // toasted
     } finally {
       setAddSubmitting(false);
+    }
+  };
+
+  const openEditModal = (apt: AdminAppointment) => {
+    const durationMin = Math.round(
+      (new Date(apt.end_time).getTime() - new Date(apt.start_time).getTime()) / 60000
+    );
+    setEditForm({
+      start_time: toBerlinLocalInput(apt.start_time),
+      duration_minutes: durationMin,
+      needs_removal: !!apt.needs_removal,
+    });
+    setEditing(apt);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    if (!editForm.start_time || editForm.duration_minutes <= 0) {
+      toast.error("Start time and a positive duration are required.");
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      await updateAdminAppointment(editing.id, {
+        start_time: toBerlinISO(editForm.start_time),
+        duration_minutes: editForm.duration_minutes,
+        needs_removal: editForm.needs_removal,
+      });
+      toast.success("Appointment updated");
+      setEditing(null);
+      loadAppointments();
+    } catch {
+      // toasted
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -344,6 +410,12 @@ export function AppointmentsPage() {
                     {apt.status === "BOOKED" && (
                       <div className="flex gap-2">
                         <button
+                          onClick={() => openEditModal(apt)}
+                          className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                        <button
                           onClick={() => handleComplete(apt.id)}
                           className="text-xs px-3 py-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors cursor-pointer"
                         >
@@ -472,6 +544,92 @@ export function AppointmentsPage() {
                 className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
               >
                 {addSubmitting ? "Creating…" : "Create"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Edit appointment modal */}
+      {editing && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !editSubmitting && setEditing(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handleEditSubmit}
+            className="bg-card border border-border rounded-xl p-6 w-full max-w-md space-y-4"
+          >
+            <h3 className="text-lg font-bold">Edit Appointment</h3>
+            <p className="text-xs text-muted-foreground">
+              {editing.client_email} — price is recalculated from the service and
+              the removal option.
+            </p>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Date & time *</label>
+              <input
+                type="datetime-local"
+                value={editForm.start_time}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, start_time: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Duration (minutes) *
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={600}
+                step={15}
+                value={editForm.duration_minutes}
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    duration_minutes: Number(e.target.value),
+                  })
+                }
+                className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                required
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={editForm.needs_removal}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, needs_removal: e.target.checked })
+                }
+                className="h-4 w-4 accent-primary cursor-pointer"
+              />
+              Needs nail removal (+€15)
+            </label>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                disabled={editSubmitting}
+                className="px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-secondary transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={editSubmitting}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
+              >
+                {editSubmitting ? "Saving…" : "Save"}
               </button>
             </div>
           </form>

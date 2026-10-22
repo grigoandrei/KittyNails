@@ -84,7 +84,8 @@ class Settings(BaseSettings):
     S3_REGION: str = "eu-central-1"
     # How long presigned view URLs stay valid, in seconds (default 1 hour).
     S3_PRESIGNED_URL_TTL: int = 3600
-    # Telegram daily digest (sends the artist next-day appointments at 21:00 Berlin)
+    # Telegram notifications for the artist: a ping on every new booking and an
+    # overview of the day's appointments at 08:00 Berlin
     TELEGRAM_ENABLED: bool = False
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""

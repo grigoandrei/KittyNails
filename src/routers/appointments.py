@@ -10,7 +10,9 @@ from src.models.design_tier import DesignTier
 from src.models.nail_type import NailType
 from src.schemas.appointment import AppointmentCreate, AppointmentResponse
 from src.services.appointment_service import create_appointment
+from src.services.booking_notifier import new_booking_message
 from src.services.email_service import send_confirmation_email
+from src.services.telegram_service import send_message
 
 logger = logging.getLogger(__name__)
 
@@ -55,5 +57,9 @@ async def create(
     except Exception as e:  # noqa: BLE001
         # Never let email failures break the booking
         logger.error("Failed to queue confirmation email: %s", str(e))
+
+    message = await new_booking_message(appointment, db)
+    if message:
+        background_tasks.add_task(send_message, message)
 
     return appointment

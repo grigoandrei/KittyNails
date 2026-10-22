@@ -2,7 +2,7 @@ import asyncio
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import get_current_admin
@@ -19,7 +19,9 @@ from src.services.appointment_service import (
     update_appointment,
     update_appointment_status,
 )
+from src.services.booking_notifier import new_booking_message
 from src.services.s3_service import generate_presigned_url
+from src.services.telegram_service import send_message
 
 router = APIRouter(prefix="/api/admin/appointments", tags=["admin-appointments"], dependencies=[Depends(get_current_admin)])
 
@@ -33,6 +35,7 @@ def _to_response(appointment: Appointment, image_url: str | None) -> Appointment
 @router.post("/", response_model=AppointmentResponse, status_code=201)
 async def create_manual_appointment(
     data: AppointmentCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),  # noqa: B008
 ):
     """Admin-created booking for a client who arranged via Instagram.
@@ -45,6 +48,9 @@ async def create_manual_appointment(
     appointment = await create_appointment(
         data, db, status=Status.BOOKED, source="instagram", enforce_cutoff=False
     )
+    message = await new_booking_message(appointment, db)
+    if message:
+        background_tasks.add_task(send_message, message)
     return _to_response(appointment, None)
 
 

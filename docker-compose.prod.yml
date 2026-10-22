@@ -83,5 +83,24 @@ services:
       disable: true
     entrypoint: /bin/sh -c "while true; do python -c 'from src.reminder_handler import handler; handler({}, None)'; sleep 3600; done"
 
+  digest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.prod
+    environment:
+      DATABASE_URL: postgresql+asyncpg://kitty:${DB_PASSWORD}@db:5432/kittynails
+    # Batch scheduler (no web server) — disable the inherited HTTP healthcheck.
+    # run_forever() sleeps until the next 08:00 Europe/Berlin, sends the daily
+    # overview of today's appointments, and repeats (DST-safe).
+    healthcheck:
+      disable: true
+    entrypoint: /bin/sh -c "python -m src.digest_handler"
+
 volumes:
   pgdata:

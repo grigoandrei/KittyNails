@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from tests.conftest import at, future_weekday
 
@@ -340,3 +340,27 @@ async def test_edit_nonexistent_appointment(client):
         "needs_removal": True,
     })
     assert resp.status_code == 404
+
+
+@patch("src.routers.admin.appointment.send_message", new_callable=AsyncMock)
+async def test_manual_booking_notifies_artist(mock_send, client):
+    nail_type_id, design_tier_id = await create_test_categories(client)
+    await client.post("/api/admin/availability-rules", json={
+        "day_of_week": 0,
+        "start_time": "09:00:00",
+        "end_time": "18:00:00",
+    })
+
+    response = await client.post("/api/admin/appointments/", json={
+        "nail_type_id": nail_type_id,
+        "design_tier_id": design_tier_id,
+        "client_email": "insta@example.com",
+        "start_time": at(MONDAY, 10),
+    })
+
+    assert response.status_code == 201
+    mock_send.assert_awaited_once()
+    message = mock_send.await_args.args[0]
+    assert "New booking" in message
+    assert "Instagram" in message
+    assert "insta@example.com" in message

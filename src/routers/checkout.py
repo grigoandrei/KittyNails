@@ -10,9 +10,9 @@ from src.config import settings
 from src.database import get_db
 from src.limiter import limiter
 from src.schemas.appointment import AppointmentCreate, CheckoutSessionResponse
+from src.services.booking_notifier import notify_new_booking
 from src.services.email_service import send_confirmation_email
 from src.services.stripe_service import (
-    _extract_appointment_id,
     create_checkout_session,
     handle_checkout_completed,
     handle_checkout_expired,
@@ -77,12 +77,13 @@ async def stripe_webhook(
     session_data = event["data"]["object"]
 
     if event_type == "checkout.session.completed":
-        await handle_checkout_completed(session_data, db)
+        appointment = await handle_checkout_completed(session_data, db)
 
-        # Send confirmation email after successful payment
-        appointment_id = _extract_appointment_id(session_data)
-        if appointment_id:
-            await _send_confirmation_for_appointment(appointment_id, db)
+        # Only notify on the first delivery. Stripe can redeliver an event we
+        # already processed, and that must not send a second email or ping.
+        if appointment:
+            await _send_confirmation_for_appointment(str(appointment.id), db)
+            await notify_new_booking(appointment, db)
 
     elif event_type == "checkout.session.expired":
         await handle_checkout_expired(session_data, db)

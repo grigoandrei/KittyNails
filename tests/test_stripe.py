@@ -1,7 +1,7 @@
 """Tests for the Stripe Checkout integration."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -111,10 +111,11 @@ class TestWebhookHandlers:
             "payment_intent": "pi_test_abc123",
         }
 
-        await handle_checkout_completed(session_data, mock_db)
+        result = await handle_checkout_completed(session_data, mock_db)
 
         assert mock_appointment.status == Status.BOOKED
         assert mock_appointment.stripe_payment_intent_id == "pi_test_abc123"
+        assert result is mock_appointment
 
     async def test_handle_checkout_completed_already_booked(self):
         """Should not change status if already BOOKED."""
@@ -142,10 +143,12 @@ class TestWebhookHandlers:
             "payment_intent": "pi_test_xyz",
         }
 
-        await handle_checkout_completed(session_data, mock_db)
+        result = await handle_checkout_completed(session_data, mock_db)
 
-        # Status should remain BOOKED (not modified)
+        # Status should remain BOOKED (not modified), and the caller is told
+        # nothing new was confirmed so it doesn't notify twice.
         assert mock_appointment.status == Status.BOOKED
+        assert result is None
 
     async def test_handle_checkout_expired(self):
         from src.services.stripe_service import handle_checkout_expired
@@ -267,8 +270,9 @@ class TestWebhookEndpoint:
     @patch("src.routers.checkout.stripe.Webhook.construct_event")
     @patch("src.routers.checkout.handle_checkout_completed")
     @patch("src.routers.checkout._send_confirmation_for_appointment")
+    @patch("src.routers.checkout.notify_new_booking")
     async def test_webhook_valid_signature(
-        self, mock_send_email, mock_handle, mock_construct, client
+        self, mock_notify, mock_send_email, mock_handle, mock_construct, client
     ):
         mock_construct.return_value = {
             "type": "checkout.session.completed",
@@ -289,6 +293,32 @@ class TestWebhookEndpoint:
         assert response.status_code == 200
         assert response.json() == {"received": True}
         mock_handle.assert_called_once()
+        mock_send_email.assert_awaited_once()
+        mock_notify.assert_awaited_once()
+
+    @patch("src.routers.checkout.stripe.Webhook.construct_event")
+    @patch("src.routers.checkout.handle_checkout_completed", new_callable=AsyncMock)
+    @patch("src.routers.checkout._send_confirmation_for_appointment")
+    @patch("src.routers.checkout.notify_new_booking")
+    async def test_webhook_redelivery_does_not_notify_twice(
+        self, mock_notify, mock_send_email, mock_handle, mock_construct, client
+    ):
+        # Already processed: handle_checkout_completed returns None.
+        mock_handle.return_value = None
+        mock_construct.return_value = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"metadata": {"appointment_id": str(uuid4())}}},
+        }
+
+        response = await client.post(
+            "/api/webhooks/stripe",
+            content=b'{"test": "data"}',
+            headers={"stripe-signature": "t=123,v1=abc"},
+        )
+
+        assert response.status_code == 200
+        mock_send_email.assert_not_called()
+        mock_notify.assert_not_called()
 
     async def test_webhook_missing_signature(self, client):
         response = await client.post(

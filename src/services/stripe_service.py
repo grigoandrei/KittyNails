@@ -101,8 +101,14 @@ def _extract_appointment_id(session_data) -> str | None:
     return _get_field(metadata, "appointment_id")
 
 
-async def handle_checkout_completed(session_data: dict, db: AsyncSession) -> None:
-    """Handle a successful checkout.session.completed webhook event."""
+async def handle_checkout_completed(
+    session_data: dict, db: AsyncSession
+) -> Appointment | None:
+    """Handle a successful checkout.session.completed webhook event.
+
+    Returns the appointment only when this call confirmed it. Returns None for
+    missing/unknown appointments and for Stripe redeliveries of an event we
+    already processed, so callers don't send duplicate notifications."""
     appointment_id = _extract_appointment_id(session_data)
     if not appointment_id:
         logger.warning(
@@ -125,12 +131,13 @@ async def handle_checkout_completed(session_data: dict, db: AsyncSession) -> Non
             appointment_id,
             appointment.status.value,
         )
-        return
+        return None
 
     appointment.status = Status.BOOKED
     appointment.stripe_payment_intent_id = _get_field(session_data, "payment_intent")
     await db.commit()
     logger.info("Appointment %s confirmed (payment received)", appointment_id)
+    return appointment
 
 
 async def handle_checkout_expired(session_data: dict, db: AsyncSession) -> None:

@@ -12,6 +12,7 @@ from src.models.blocked_time import BlockedTime
 from src.models.design_tier import DesignTier
 from src.models.nail_type import NailType
 from src.schemas.appointment import AppointmentCreate, AppointmentUpdate
+from src.services.slots_service import BERLIN_TZ, is_past_same_day_cutoff
 
 
 async def create_appointment(
@@ -19,7 +20,18 @@ async def create_appointment(
     db: AsyncSession,
     status: Status = Status.BOOKED,
     source: str = "web",
+    enforce_cutoff: bool = True,
 ) -> Appointment:
+    # Clients can't book for today after the same-day cutoff. Admin manual
+    # bookings pass enforce_cutoff=False.
+    if enforce_cutoff and is_past_same_day_cutoff(
+        data.start_time.astimezone(BERLIN_TZ).date()
+    ):
+        raise ValidationError(
+            "Same-day bookings close at "
+            f"{settings.SAME_DAY_CUTOFF_HOUR}:00. Please pick another day!"
+        )
+
     result = await db.execute(select(NailType).where(NailType.id == data.nail_type_id))
     nail_type = result.scalar_one_or_none()
 

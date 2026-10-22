@@ -1,10 +1,11 @@
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import settings
 from src.exceptions import NotFoundError
 from src.models.appointment import Appointment, Status
 from src.models.availability_rules import AvailabilityRules
@@ -18,6 +19,19 @@ BERLIN_TZ = ZoneInfo("Europe/Berlin")
 # A slot is shown whenever an appointment of the requested duration fits
 # entirely within the schedule and doesn't overlap a booking or blocked time.
 SLOT_STEP = timedelta(minutes=30)
+
+
+def now_berlin() -> datetime:
+    """Current time in Berlin. The server clock runs on UTC, so always convert
+    explicitly. Kept as a function so tests can freeze "now"."""
+    return datetime.now(BERLIN_TZ)
+
+
+def is_past_same_day_cutoff(target_date: date) -> bool:
+    """True when target_date is today (Berlin) and the same-day booking
+    cutoff (SAME_DAY_CUTOFF_HOUR) has already passed."""
+    now = now_berlin()
+    return target_date == now.date() and now.hour >= settings.SAME_DAY_CUTOFF_HOUR
 
 
 async def _resolve_duration(
@@ -51,6 +65,10 @@ async def get_available_slots(
 ) -> list[datetime]:
     total_minutes = await _resolve_duration(db, nail_type_id, design_tier_id)
     duration = timedelta(minutes=total_minutes)
+
+    # No same-day slots once the cutoff has passed.
+    if is_past_same_day_cutoff(target_date):
+        return []
 
     day_of_week = target_date.weekday()
     result = await db.execute(
@@ -86,11 +104,10 @@ async def get_available_slots(
         """Convert any datetime to Berlin time for comparison."""
         if dt.tzinfo is None:
             # Assume naive datetimes are UTC (legacy data)
-            from datetime import timezone as tz
-            dt = dt.replace(tzinfo=tz.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt.astimezone(BERLIN_TZ)
 
-    now = datetime.now(BERLIN_TZ)
+    now = now_berlin()
 
     available = []
     for rule in rules:
@@ -147,7 +164,7 @@ async def get_available_dates(
 
     available_dates = []
     current = first_day
-    today = date.today()
+    today = now_berlin().date()
 
     while current <= last_day:
         if current >= today:

@@ -1,5 +1,5 @@
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
@@ -38,6 +38,12 @@ async def create_test_categories(client, duration=60):
         "price": 15.00,
     })
     return nail_resp.json()["id"], design_resp.json()["id"]
+
+
+def berlin(target_date: date, hour: int) -> str:
+    """ISO timestamp for a Berlin-local hour. Uses the real offset for that
+    date so tests stay correct across DST changes."""
+    return datetime.combine(target_date, time(hour), tzinfo=BERLIN_TZ).isoformat()
 
 
 def slots_url(nail_type_id, design_tier_id, target_date):
@@ -111,7 +117,7 @@ async def test_available_slots_with_booking(client):
         "nail_type_id": nail_type_id,
         "design_tier_id": design_tier_id,
         "client_email": "test@example.com",
-        "start_time": f"{target}T10:00:00+02:00",
+        "start_time": berlin(target, 10),
     })
 
     response = await client.get(slots_url(nail_type_id, design_tier_id, target))
@@ -133,8 +139,8 @@ async def test_available_slots_with_blocked_time(client):
     })
 
     await client.post("/api/admin/blocked-times", json={
-        "start_time": f"{target}T10:00:00+02:00",
-        "end_time": f"{target}T11:00:00+02:00",
+        "start_time": berlin(target, 10),
+        "end_time": berlin(target, 11),
         "reason": "Break",
     })
 

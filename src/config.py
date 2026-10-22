@@ -75,12 +75,19 @@ class Settings(BaseSettings):
     # Flat surcharge (euros) added to an appointment when the client requests
     # removal of existing nails at booking. Price only — no duration change.
     NAIL_REMOVAL_PRICE: float = 15.00
+    # Clients can't book for the current day once Berlin time reaches this hour
+    # (24h clock). Admin manual bookings are exempt.
+    SAME_DAY_CUTOFF_HOUR: int = 14
     FRONTEND_URL: str = "http://localhost:5173"
     # S3 storage for client-uploaded nail photos
     S3_BUCKET: str = ""
     S3_REGION: str = "eu-central-1"
     # How long presigned view URLs stay valid, in seconds (default 1 hour).
     S3_PRESIGNED_URL_TTL: int = 3600
+    # Telegram daily digest (sends the artist next-day appointments at 21:00 Berlin)
+    TELEGRAM_ENABLED: bool = False
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_CHAT_ID: str = ""
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

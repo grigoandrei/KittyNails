@@ -43,7 +43,7 @@ async def create_manual_appointment(
     already coordinated with the artist directly.
     """
     appointment = await create_appointment(
-        data, db, status=Status.BOOKED, source="instagram"
+        data, db, status=Status.BOOKED, source="instagram", enforce_cutoff=False
     )
     return _to_response(appointment, None)
 

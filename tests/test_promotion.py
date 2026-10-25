@@ -3,6 +3,7 @@ from datetime import timedelta
 import pytest
 
 from src.config import settings
+from src.services.pricing import round_promo_price
 from tests.conftest import at, future_weekday
 
 # The promo window is moved to a future week so these tests don't rot once the
@@ -118,3 +119,30 @@ async def test_get_promotion_null_after_window(client, monkeypatch):
     monkeypatch.setattr(settings, "PROMO_END", MONDAY - timedelta(days=30))
     response = await client.get("/api/promotion")
     assert response.json() is None
+
+
+@pytest.mark.parametrize("raw, expected", [
+    (55.25, 55.00),  # below .50 rounds down
+    (63.75, 64.00),  # above .50 rounds up
+    (42.50, 42.50),  # exactly .50 stays
+    (51.00, 51.00),
+    (55.49, 55.00),
+    (55.51, 56.00),
+])
+def test_round_promo_price(raw, expected):
+    assert round_promo_price(raw) == expected
+
+
+async def test_promo_price_is_rounded(client):
+    """Extensions €55 + Medium €10 = €65, 15% off = €55.25, rounds to €55."""
+    nail = await client.post("/api/admin/nail-types", json={
+        "name": "Extensions", "duration_minutes": 150, "price": 55.00,
+    })
+    tier = await client.post("/api/admin/design-tiers", json={
+        "name": "Medium", "duration_minutes": 0, "price": 10.00,
+    })
+    await client.post("/api/admin/availability-rules", json={
+        "day_of_week": 0, "start_time": "09:00:00", "end_time": "18:00:00",
+    })
+    response = await book(client, nail.json()["id"], tier.json()["id"], MONDAY)
+    assert response.json()["quoted_price"] == 55.00

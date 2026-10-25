@@ -6,6 +6,18 @@ from src.models.nail_type import NailType
 from src.services.slots_service import BERLIN_TZ
 
 
+def round_promo_price(price: float) -> float:
+    """Snap a discounted price to a whole euro or a half euro. Cents below 50
+    round down, above 50 round up, and exactly 50 stay: 55.25 -> 55,
+    63.75 -> 64, 42.50 -> 42.50."""
+    euros, cents = divmod(round(price * 100), 100)
+    if cents < 50:
+        return float(euros)
+    if cents > 50:
+        return float(euros + 1)
+    return euros + 0.5
+
+
 def is_promo_tier(design_tier: DesignTier | None) -> bool:
     return (
         settings.PROMO_PERCENT > 0
@@ -29,7 +41,7 @@ def compute_price(
     price = float(nail_type.price) + (float(design_tier.price) if design_tier else 0)
 
     if is_promo_tier(design_tier) and is_promo_day(start_time.astimezone(BERLIN_TZ).date()):
-        price = round(price * (1 - settings.PROMO_PERCENT / 100), 2)
+        price = round_promo_price(price * (1 - settings.PROMO_PERCENT / 100))
 
     if needs_removal:
         price += float(settings.NAIL_REMOVAL_PRICE)

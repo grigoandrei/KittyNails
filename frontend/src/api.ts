@@ -107,8 +107,15 @@ export function promoEndsAt(promo: Promotion): Date {
   return new Date(`${promo.end}T23:59:59${offset || "+00:00"}`);
 }
 
+// Mirrors backend pricing.round_promo_price: cents below 50 round down, above
+// 50 round up, exactly 50 stay.
 export function applyPromo(price: number, promo: Promotion): number {
-  return Math.round(price * (1 - promo.percent / 100) * 100) / 100;
+  const total = Math.round(price * (1 - promo.percent / 100) * 100);
+  const euros = Math.floor(total / 100);
+  const cents = total % 100;
+  if (cents < 50) return euros;
+  if (cents > 50) return euros + 1;
+  return euros + 0.5;
 }
 
 // --- Slots ---

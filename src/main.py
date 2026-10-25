@@ -14,6 +14,7 @@ from src.routers.admin.availability import router as admin_availability_router
 from src.routers.admin.blocked_time import router as blocked_time_router
 from src.routers.admin.design_tiers import router as admin_design_tiers_router
 from src.routers.admin.nail_types import router as admin_nail_types_router
+from src.routers.admin.stats import router as admin_stats_router
 from src.routers.appointments import router as appointments_router
 from src.routers.checkout import router as checkout_router
 from src.routers.design_tiers import router as design_tiers_router
@@ -67,6 +68,7 @@ app.include_router(nail_analysis_router)
 app.include_router(admin_availability_router)
 app.include_router(blocked_time_router)
 app.include_router(admin_appointments_router)
+app.include_router(admin_stats_router)
 app.include_router(slots_router)
 app.include_router(promotion_router)
 app.include_router(admin_auth_router)

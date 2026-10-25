@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { fetchAdminAppointments, type AdminAppointment } from "./api";
+import { WeeklyIncomeChart } from "./WeeklyIncomeChart";
 
 export function DashboardPage() {
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
@@ -21,6 +22,7 @@ export function DashboardPage() {
   return (
     <div>
       <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
+      <WeeklyIncomeChart />
       <div className="bg-card border border-border rounded-xl p-6">
         <h3 className="text-lg font-semibold mb-4">
           Today's Appointments ({format(new Date(), "MMMM d, yyyy")})

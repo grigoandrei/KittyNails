@@ -341,3 +341,15 @@ export async function completeAppointment(id: string): Promise<void> {
     method: "PATCH",
   });
 }
+
+// Stats
+export interface WeeklyIncome {
+  week_start: string;
+  income: number;
+  appointments: number;
+}
+
+export async function fetchWeeklyIncome(start: string): Promise<WeeklyIncome[]> {
+  const res = await adminFetch(`/api/admin/stats/weekly-income?start=${start}`);
+  return res.json();
+}

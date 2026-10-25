@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import date
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -75,6 +76,15 @@ class Settings(BaseSettings):
     # Flat surcharge (euros) added to an appointment when the client requests
     # removal of existing nails at booking. Price only — no duration change.
     NAIL_REMOVAL_PRICE: float = 15.00
+    # Seasonal promotion: percent off the service price (nail type + design
+    # tier, never the removal fee) for appointments whose Berlin date falls in
+    # [PROMO_START, PROMO_END] and whose design tier is in PROMO_DESIGN_TIERS.
+    # Set PROMO_PERCENT to 0 to turn it off.
+    PROMO_NAME: str = "Halloween"
+    PROMO_PERCENT: float = 15.0
+    PROMO_START: date = date(2026, 10, 26)
+    PROMO_END: date = date(2026, 11, 1)
+    PROMO_DESIGN_TIERS: list[str] = ["Medium", "Advanced"]
     # Clients can't book for the current day once Berlin time reaches this hour
     # (24h clock). Admin manual bookings are exempt.
     SAME_DAY_CUTOFF_HOUR: int = 14

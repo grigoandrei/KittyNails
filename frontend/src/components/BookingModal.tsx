@@ -12,8 +12,13 @@ import {
   fetchSlots,
   fetchNailTypes,
   createCheckoutSession,
+  fetchPromotion,
+  promoAppliesTo,
+  applyPromo,
+  berlinDay,
   type NailAnalysisResponse,
   type NailType,
+  type Promotion,
 } from "../api";
 
 function cn(...inputs: (string | undefined | null | false)[]) {
@@ -64,6 +69,13 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
 
   // Nail removal add-on (flat surcharge, price only)
   const [needsRemoval, setNeedsRemoval] = useState(false);
+
+  // Seasonal promo, for display only (the backend applies it at booking)
+  const [promo, setPromo] = useState<Promotion | null>(null);
+
+  useEffect(() => {
+    if (open) fetchPromotion().then(setPromo).catch(() => setPromo(null));
+  }, [open]);
 
   // Submission
   const [submitting, setSubmitting] = useState(false);
@@ -342,7 +354,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
           )}
 
           {/* Confirmed State */}
-          {confirmed && <ConfirmedView analysis={analysis} japaneseManicure={japaneseManicure} selectedTime={selectedTime} email={getValues().email} onClose={() => onOpenChange(false)} />}
+          {confirmed && <ConfirmedView analysis={analysis} promo={promo} japaneseManicure={japaneseManicure} selectedTime={selectedTime} email={getValues().email} onClose={() => onOpenChange(false)} />}
 
           {/* Step 1: Photo Upload */}
           {!confirmed && step === "photo" && (
@@ -359,7 +371,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
 
           {/* Step 2: AI Estimate */}
           {!confirmed && step === "estimate" && (
-            <EstimateStep analysis={analysis} onContinue={() => setStep("datetime")} onBack={goBack} />
+            <EstimateStep analysis={analysis} promo={promo} onContinue={() => setStep("datetime")} onBack={goBack} />
           )}
 
           {/* Step 3: Date & Time */}
@@ -389,6 +401,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
           {!confirmed && step === "confirm" && (
             <ConfirmStep
               analysis={analysis}
+              promo={promo}
               japaneseManicure={japaneseManicure}
               selectedTime={selectedTime}
               submitting={submitting}
@@ -453,8 +466,9 @@ function renderCalendar(
   );
 }
 
-function ConfirmedView({ analysis, japaneseManicure, selectedTime, email, onClose }: {
+function ConfirmedView({ analysis, promo, japaneseManicure, selectedTime, email, onClose }: {
   analysis: NailAnalysisResponse | null;
+  promo: Promotion | null;
   japaneseManicure: NailType | null;
   selectedTime: string | null;
   email: string;
@@ -463,9 +477,14 @@ function ConfirmedView({ analysis, japaneseManicure, selectedTime, email, onClos
   const serviceName = japaneseManicure
     ? "Japanese Manicure"
     : `${analysis?.nail_type} + ${analysis?.design_tier}`;
-  const price = japaneseManicure
+  const basePrice = japaneseManicure
     ? japaneseManicure.price
     : analysis?.estimated_price ?? 0;
+  const discounted =
+    !japaneseManicure &&
+    !!selectedTime &&
+    promoAppliesTo(promo, analysis?.design_tier, berlinDay(selectedTime));
+  const price = discounted && promo ? applyPromo(basePrice, promo) : basePrice;
 
   return (
     <div className="text-center py-8">
@@ -608,8 +627,9 @@ function PhotoStep({ previewUrl, selectedFile, analyzing, analyzeError, onFileSe
   );
 }
 
-function EstimateStep({ analysis, onContinue, onBack }: {
+function EstimateStep({ analysis, promo, onContinue, onBack }: {
   analysis: NailAnalysisResponse | null;
+  promo: Promotion | null;
   onContinue: () => void;
   onBack: () => void;
 }) {
@@ -648,6 +668,13 @@ function EstimateStep({ analysis, onContinue, onBack }: {
         <p className="text-sm text-muted-foreground italic">
           "{analysis.reasoning}"
         </p>
+
+        {promo && promoAppliesTo(promo, analysis.design_tier) && (
+          <p className="text-sm font-medium text-primary">
+            {promo.name}: {promo.percent}% off, €{applyPromo(analysis.estimated_price, promo).toFixed(2)}{" "}
+            for appointments {format(parseISO(promo.start), "MMM d")} to {format(parseISO(promo.end), "MMM d")}
+          </p>
+        )}
       </div>
 
       {/* Disclaimer */}
@@ -815,8 +842,9 @@ function DateTimeStep({ calendarMonth, canGoPrevMonth, datesLoading, datesError,
   );
 }
 
-function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, needsRemoval, onNeedsRemovalChange, register, errors, onSubmit, onBack }: {
+function ConfirmStep({ analysis, promo, japaneseManicure, selectedTime, submitting, needsRemoval, onNeedsRemovalChange, register, errors, onSubmit, onBack }: {
   analysis: NailAnalysisResponse | null;
+  promo: Promotion | null;
   japaneseManicure: NailType | null;
   selectedTime: string | null;
   submitting: boolean;
@@ -833,9 +861,14 @@ function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, nee
   const duration = japaneseManicure
     ? japaneseManicure.duration_minutes
     : analysis?.estimated_duration_minutes ?? 0;
-  const price = japaneseManicure
+  const basePrice = japaneseManicure
     ? japaneseManicure.price
     : analysis?.estimated_price ?? 0;
+  const discounted =
+    !japaneseManicure &&
+    !!selectedTime &&
+    promoAppliesTo(promo, analysis?.design_tier, berlinDay(selectedTime));
+  const price = discounted && promo ? applyPromo(basePrice, promo) : basePrice;
 
   return (
     <form onSubmit={onSubmit}>
@@ -851,8 +884,19 @@ function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, nee
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Price</span>
-          <span className="font-medium">€{price.toFixed(2)}</span>
+          <span className="font-medium">
+            {discounted && (
+              <span className="mr-2 text-muted-foreground line-through">€{basePrice.toFixed(2)}</span>
+            )}
+            €{price.toFixed(2)}
+          </span>
         </div>
+        {discounted && promo && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Discount</span>
+            <span className="font-medium text-primary">{promo.name} {promo.percent}% off</span>
+          </div>
+        )}
         {needsRemoval && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Nail removal</span>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { Navbar } from "./components/Navbar";
@@ -8,6 +9,9 @@ import { Gallery } from "./components/Gallery";
 import { Testimonials } from "./components/Testimonials";
 import { Footer } from "./components/Footer";
 import { BookingModal } from "./components/BookingModal";
+import { HalloweenBanner, BANNER_HEIGHT } from "./components/halloween/HalloweenBanner";
+import { HalloweenSection } from "./components/halloween/HalloweenSection";
+import { fetchPromotion, type Promotion } from "./api";
 import { BookingSuccess, BookingCancelled } from "./components/BookingResult";
 import { AuthProvider } from "./admin/AuthContext";
 import { AdminLayout } from "./admin/AdminLayout";
@@ -21,12 +25,30 @@ import { AppointmentsPage } from "./admin/AppointmentsPage";
 
 function PublicSite() {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [promo, setPromo] = useState<Promotion | null>(null);
+  const [bannerVisible, setBannerVisible] = useState(true);
+
+  useEffect(() => {
+    fetchPromotion().then(setPromo).catch(() => setPromo(null));
+  }, []);
+
+  const showBanner = !!promo && bannerVisible;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Navbar onBookNow={() => setIsBookingOpen(true)} />
+      <AnimatePresence>
+        {showBanner && (
+          <HalloweenBanner
+            promo={promo}
+            onClose={() => setBannerVisible(false)}
+            onBookNow={() => setIsBookingOpen(true)}
+          />
+        )}
+      </AnimatePresence>
+      <Navbar onBookNow={() => setIsBookingOpen(true)} topOffset={showBanner ? BANNER_HEIGHT : 0} />
       <main>
         <Hero onBookNow={() => setIsBookingOpen(true)} />
+        {promo && <HalloweenSection promo={promo} onBookNow={() => setIsBookingOpen(true)} />}
         <Services />
         <Gallery />
         <Testimonials />

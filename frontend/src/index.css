@@ -14,6 +14,13 @@
   --color-destructive: #dc2626;
   --color-success: #16a34a;
 
+  /* Halloween promo palette */
+  --color-halloween-night: #0C0520;
+  --color-halloween-plum: #170B2E;
+  --color-halloween-amber: #F4A820;
+  --color-halloween-amber-light: #FBD38D;
+  --color-halloween-ivory: #F7EEF2;
+
   --font-serif: "Georgia", "Times New Roman", serif;
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
 }

@@ -19,6 +19,7 @@ from src.routers.checkout import router as checkout_router
 from src.routers.design_tiers import router as design_tiers_router
 from src.routers.nail_analysis import router as nail_analysis_router
 from src.routers.nail_types import router as nail_types_router
+from src.routers.promotion import router as promotion_router
 from src.routers.slots import router as slots_router
 
 origins = [
@@ -67,6 +68,7 @@ app.include_router(admin_availability_router)
 app.include_router(blocked_time_router)
 app.include_router(admin_appointments_router)
 app.include_router(slots_router)
+app.include_router(promotion_router)
 app.include_router(admin_auth_router)
 
 

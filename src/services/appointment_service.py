@@ -12,6 +12,7 @@ from src.models.blocked_time import BlockedTime
 from src.models.design_tier import DesignTier
 from src.models.nail_type import NailType
 from src.schemas.appointment import AppointmentCreate, AppointmentUpdate
+from src.services.pricing import compute_price
 from src.services.slots_service import BERLIN_TZ, is_past_same_day_cutoff
 
 
@@ -54,14 +55,9 @@ async def create_appointment(
     total_minutes = nail_type.duration_minutes + (
         design_tier.duration_minutes if design_tier else 0
     )
-    quoted_price = float(nail_type.price) + (
-        float(design_tier.price) if design_tier else 0
+    quoted_price = compute_price(
+        nail_type, design_tier, data.needs_removal, data.start_time
     )
-
-    # Optional flat surcharge for removing the client's existing nails.
-    # Price only — it does not change the appointment duration.
-    if data.needs_removal:
-        quoted_price += float(settings.NAIL_REMOVAL_PRICE)
 
     end_time = data.start_time + timedelta(minutes=total_minutes)
 
@@ -162,25 +158,24 @@ async def update_appointment(
         duration = appointment.end_time - appointment.start_time
     new_end = new_start + duration
 
-    # Re-derive price from the (unchanged) service rows + removal flag.
+    # Re-derive price from the (unchanged) service rows + removal flag. The
+    # promo is keyed on the appointment date, so moving it in or out of the
+    # promo window updates the discount.
     nt_result = await db.execute(
         select(NailType).where(NailType.id == appointment.nail_type_id)
     )
     nail_type = nt_result.scalar_one_or_none()
     if not nail_type:
         raise NotFoundError("Nail type not available!")
-    quoted_price = float(nail_type.price)
 
+    design_tier = None
     if appointment.design_tier_id:
         dt_result = await db.execute(
             select(DesignTier).where(DesignTier.id == appointment.design_tier_id)
         )
         design_tier = dt_result.scalar_one_or_none()
-        if design_tier:
-            quoted_price += float(design_tier.price)
 
-    if new_needs_removal:
-        quoted_price += float(settings.NAIL_REMOVAL_PRICE)
+    quoted_price = compute_price(nail_type, design_tier, new_needs_removal, new_start)
 
     # Working hours for the (possibly new) day.
     rules_result = await db.execute(

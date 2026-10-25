@@ -4,9 +4,10 @@ import logoImg from "../assets/logo.jpeg";
 
 interface NavbarProps {
   onBookNow: () => void;
+  topOffset?: number;
 }
 
-export function Navbar({ onBookNow }: NavbarProps) {
+export function Navbar({ onBookNow, topOffset = 0 }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -18,7 +19,8 @@ export function Navbar({ onBookNow }: NavbarProps) {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      style={{ top: topOffset }}
+      className={`fixed left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
           ? "bg-card/95 backdrop-blur-md shadow-sm border-b border-border"
           : "bg-transparent"

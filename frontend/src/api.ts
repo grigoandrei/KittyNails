@@ -46,6 +46,71 @@ export async function fetchNailTypes(): Promise<NailType[]> {
   return response.json();
 }
 
+// --- Design Tiers ---
+
+export interface DesignTier {
+  id: string;
+  name: string;
+  duration_minutes: number;
+  price: number;
+}
+
+export async function fetchDesignTiers(): Promise<DesignTier[]> {
+  const response = await fetch("/api/design-tiers");
+  if (!response.ok) throw new Error("Failed to fetch design tiers");
+  return response.json();
+}
+
+// --- Promotion ---
+
+export interface Promotion {
+  name: string;
+  percent: number;
+  start: string; // YYYY-MM-DD, Berlin date
+  end: string;
+  design_tiers: string[];
+}
+
+export async function fetchPromotion(): Promise<Promotion | null> {
+  const response = await fetch("/api/promotion");
+  if (!response.ok) return null;
+  return response.json();
+}
+
+// Display only. Mirrors backend pricing.compute_price; the backend is
+// authoritative for the actual charge. `day` is YYYY-MM-DD.
+export function promoAppliesTo(
+  promo: Promotion | null,
+  designTier: string | null | undefined,
+  day?: string | null
+): boolean {
+  if (!promo || !designTier || !promo.design_tiers.includes(designTier)) return false;
+  return !day || (day >= promo.start && day <= promo.end);
+}
+
+// Berlin calendar date (YYYY-MM-DD) of an ISO timestamp, matching how the
+// backend decides whether an appointment falls in the promo window.
+export function berlinDay(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Berlin" });
+}
+
+// The instant the promo ends: 23:59:59 Berlin time on its last day.
+export function promoEndsAt(promo: Promotion): Date {
+  const utcGuess = new Date(`${promo.end}T23:59:59Z`);
+  const offset = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Berlin",
+    timeZoneName: "longOffset",
+  })
+    .formatToParts(utcGuess)
+    .find((p) => p.type === "timeZoneName")!
+    .value.replace("GMT", "");
+  return new Date(`${promo.end}T23:59:59${offset || "+00:00"}`);
+}
+
+export function applyPromo(price: number, promo: Promotion): number {
+  return Math.round(price * (1 - promo.percent / 100) * 100) / 100;
+}
+
 // --- Slots ---
 
 export async function fetchAvailableDates(

@@ -1,4 +1,5 @@
 import { Sparkles } from "lucide-react";
+import { INSTAGRAM_HANDLE, INSTAGRAM_URL, InstagramIcon } from "./Instagram";
 
 interface HeroProps {
   onBookNow: () => void;
@@ -42,12 +43,13 @@ export function Hero({ onBookNow }: HeroProps) {
             Book Your Appointment
           </button>
           <a
-            href="https://www.instagram.com/kittynails_berlin/"
+            href={INSTAGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground transition-colors text-sm underline underline-offset-4"
+            className="inline-flex items-center gap-2 bg-card/80 backdrop-blur-sm text-foreground border-2 border-primary px-7 py-3 rounded-full text-base font-medium hover:bg-primary-light transition-colors shadow-md cursor-pointer"
           >
-            @kittynails_berlin
+            <InstagramIcon className="w-5 h-5 text-primary-dark" />
+            {INSTAGRAM_HANDLE}
           </a>
         </div>
       </div>

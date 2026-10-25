@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useForm } from "react-hook-form";
 import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, getDay, getDaysInMonth, isSameDay } from "date-fns";
@@ -31,6 +31,19 @@ const REMOVAL_PRICE = 15;
 
 type Step = "photo" | "estimate" | "datetime" | "confirm";
 
+// Optional seasonal look for the modal. It only restyles: the booking flow is
+// the same with or without a skin, so a skin can be dropped at any time.
+export interface BookingSkin {
+  // Scoped class that remaps the theme color tokens inside the modal
+  className: string;
+  overlayClassName?: string;
+  // Decorations rendered at the top of the modal
+  header?: ReactNode;
+  // Small badge drawn on a calendar day
+  dayBadge?: (date: Date) => ReactNode;
+  confirmedTitle?: string;
+}
+
 interface ClientInfo {
   email: string;
   phone: string;
@@ -39,9 +52,10 @@ interface ClientInfo {
 interface BookingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  skin?: BookingSkin;
 }
 
-export function BookingModal({ open, onOpenChange }: BookingModalProps) {
+export function BookingModal({ open, onOpenChange, skin }: BookingModalProps) {
   const [step, setStep] = useState<Step>("photo");
 
   // Photo upload
@@ -322,15 +336,17 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto bg-card rounded-2xl shadow-xl border border-border p-6">
+        <Dialog.Overlay className={cn("fixed inset-0 bg-black/50 backdrop-blur-sm z-50", skin?.overlayClassName)} />
+        <Dialog.Content className={cn("fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto bg-card rounded-2xl shadow-xl border border-border p-6", skin?.className)}>
+          {skin?.header}
+
           {/* Close button */}
-          <Dialog.Close className="absolute top-4 right-4 p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-secondary transition-colors">
+          <Dialog.Close className="absolute top-4 right-4 z-10 p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-secondary transition-colors">
             <X className="w-5 h-5" />
           </Dialog.Close>
 
           <Dialog.Title className="font-[family-name:var(--font-serif)] text-xl font-semibold mb-1">
-            {confirmed ? "Booking Confirmed" : "Book an Appointment"}
+            {confirmed ? skin?.confirmedTitle ?? "Booking Confirmed" : "Book an Appointment"}
           </Dialog.Title>
           <Dialog.Description className="text-sm text-muted-foreground mb-6">
             {confirmed
@@ -393,7 +409,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
               onRetrySlots={loadTimeSlots}
               onContinue={() => setStep("confirm")}
               onBack={goBack}
-              renderCalendar={() => renderCalendar(calendarMonth, selectedDate, isDateAvailable, setSelectedDate)}
+              renderCalendar={() => renderCalendar(calendarMonth, selectedDate, isDateAvailable, setSelectedDate, skin?.dayBadge)}
             />
           )}
 
@@ -425,7 +441,8 @@ function renderCalendar(
   calendarMonth: Date,
   selectedDate: Date | null,
   isDateAvailable: (day: number) => boolean,
-  setSelectedDate: (d: Date) => void
+  setSelectedDate: (d: Date) => void,
+  dayBadge?: (date: Date) => ReactNode
 ) {
   const daysInMonth = getDaysInMonth(calendarMonth);
   const firstDayOfWeek = getDay(startOfMonth(calendarMonth));
@@ -453,12 +470,13 @@ function renderCalendar(
             disabled={!available}
             onClick={() => setSelectedDate(dateObj)}
             className={cn(
-              "w-full aspect-square rounded-lg text-sm flex items-center justify-center transition-colors",
+              "relative w-full aspect-square rounded-lg text-sm flex items-center justify-center transition-colors",
               available ? "hover:bg-primary/10 cursor-pointer" : "text-muted-foreground/40 cursor-not-allowed",
               isSelected && "bg-primary text-white hover:bg-primary-dark"
             )}
           >
             {day}
+            {available && dayBadge?.(dateObj)}
           </button>
         );
       })}

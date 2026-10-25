@@ -11,6 +11,7 @@ import { Footer } from "./components/Footer";
 import { BookingModal } from "./components/BookingModal";
 import { HalloweenBanner, BANNER_HEIGHT } from "./components/halloween/HalloweenBanner";
 import { HalloweenSection } from "./components/halloween/HalloweenSection";
+import { halloweenBookingSkin } from "./components/halloween/halloweenBookingSkin";
 import { fetchPromotion, type Promotion } from "./api";
 import { BookingSuccess, BookingCancelled } from "./components/BookingResult";
 import { AuthProvider } from "./admin/AuthContext";
@@ -54,7 +55,11 @@ function PublicSite() {
         <Testimonials />
       </main>
       <Footer />
-      <BookingModal open={isBookingOpen} onOpenChange={setIsBookingOpen} />
+      <BookingModal
+        open={isBookingOpen}
+        onOpenChange={setIsBookingOpen}
+        skin={promo ? halloweenBookingSkin : undefined}
+      />
     </div>
   );
 }

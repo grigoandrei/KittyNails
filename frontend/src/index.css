@@ -34,3 +34,30 @@ body {
   background-color: var(--color-background);
   color: var(--color-foreground);
 }
+
+/* Halloween booking skin: remaps the theme tokens inside the booking modal so
+   the modal markup stays the same. Remove with halloweenBookingSkin. */
+.halloween-skin {
+  --color-card: #130828;
+  --color-background: rgba(255, 255, 255, 0.06);
+  --color-foreground: #F7EEF2;
+  --color-primary: #F4A820;
+  --color-primary-dark: #C47A10;
+  --color-primary-light: rgba(244, 168, 32, 0.2);
+  --color-primary-foreground: #0C0520;
+  --color-border: rgba(244, 168, 32, 0.18);
+  --color-muted-foreground: rgba(247, 238, 242, 0.5);
+  --color-secondary: rgba(255, 255, 255, 0.04);
+  --color-blue-50: rgba(244, 168, 32, 0.08);
+  --color-blue-500: #F4A820;
+  --color-green-100: rgba(244, 168, 32, 0.15);
+  --color-green-600: #F4A820;
+  color: var(--color-foreground);
+  color-scheme: dark;
+  box-shadow: 0 0 0 1px rgba(244, 168, 32, 0.08), 0 32px 64px -16px rgba(0, 0, 0, 0.6);
+}
+
+/* Selected day and time chips use white text, which is unreadable on amber */
+.halloween-skin .bg-primary.text-white {
+  color: var(--color-primary-foreground);
+}

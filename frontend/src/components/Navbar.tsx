@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import logoImg from "../assets/logo.jpeg";
+import { INSTAGRAM_HANDLE, INSTAGRAM_URL, InstagramIcon } from "./Instagram";
 
 interface NavbarProps {
   onBookNow: () => void;
@@ -56,6 +57,15 @@ export function Navbar({ onBookNow, topOffset = 0 }: NavbarProps) {
             >
               Reviews
             </a>
+            <a
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Instagram ${INSTAGRAM_HANDLE}`}
+              className="flex items-center justify-center w-10 h-10 rounded-full border border-primary text-primary-dark hover:bg-primary-light transition-colors"
+            >
+              <InstagramIcon className="w-5 h-5" />
+            </a>
             <button
               onClick={onBookNow}
               className="bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary-dark transition-colors shadow-sm"
@@ -97,6 +107,16 @@ export function Navbar({ onBookNow, topOffset = 0 }: NavbarProps) {
                 className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
               >
                 Reviews
+              </a>
+              <a
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+              >
+                <InstagramIcon className="w-4 h-4 text-primary-dark" />
+                {INSTAGRAM_HANDLE}
               </a>
               <div className="px-4 pt-2">
                 <button

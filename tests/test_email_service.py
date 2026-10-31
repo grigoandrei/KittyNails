@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from botocore.exceptions import ClientError
 
+from src.config import settings
 from src.services.email_service import (
     _confirmation_html,
     _format_datetime_berlin,
@@ -336,3 +337,18 @@ class TestAppointmentEmailIntegration:
 
         assert response.status_code == 201
         assert response.json()["status"] == "BOOKED"
+
+
+class TestDoorbellInstructions:
+    @pytest.fixture(autouse=True)
+    def setup_database(self):
+        yield
+
+    def test_confirmation_and_reminder_mention_doorbell(self):
+        start = datetime(2026, 11, 7, 14, 0, tzinfo=UTC)
+        end = datetime(2026, 11, 7, 15, 30, tzinfo=UTC)
+        confirmation = _confirmation_html("c@example.com", start, end, "Regular", None, 40.0)
+        reminder = _reminder_html("c@example.com", start, "Regular", None)
+        for html in (confirmation, reminder):
+            assert settings.STUDIO_DOORBELL in html
+            assert settings.STUDIO_ADDRESS in html

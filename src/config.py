@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     SES_ENABLED: bool = True
     STUDIO_NAME: str = "KittyNails Berlin"
     STUDIO_ADDRESS: str = "Stallschreiberstraße 16, 10179 Berlin"
+    STUDIO_DOORBELL: str = "Grigorescu/Hagima"
     STUDIO_INSTAGRAM: str = "https://www.instagram.com/kittynails_berlin/"
     # Stripe configuration
     STRIPE_SECRET_KEY: str = ""

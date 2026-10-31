@@ -118,6 +118,12 @@ def _confirmation_html(
     </tr>
 </table>
 <p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 10px;">
+    📍 <strong>Address:</strong> {settings.STUDIO_ADDRESS}
+</p>
+<p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 10px;">
+    🔔 <strong>Doorbell:</strong> please ring <strong>{settings.STUDIO_DOORBELL}</strong> and we'll buzz you in.
+</p>
+<p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 10px;">
     <strong>Please note:</strong> If you need to cancel or reschedule, please contact us
     at least 24 hours before your appointment via Instagram DM.
 </p>
@@ -163,6 +169,9 @@ def _reminder_html(
 </table>
 <p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 10px;">
     📍 <strong>Address:</strong> {settings.STUDIO_ADDRESS}
+</p>
+<p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 10px;">
+    🔔 <strong>Doorbell:</strong> please ring <strong>{settings.STUDIO_DOORBELL}</strong> and we'll buzz you in.
 </p>
 <p style="color:#4b5563; font-size:14px; line-height:1.6; margin:0 0 10px;">
     If you can no longer make it, please let us know as soon as possible via Instagram DM.

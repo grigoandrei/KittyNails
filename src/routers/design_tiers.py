@@ -1,8 +1,9 @@
-from src.services.design_tier_crud import get_active_design_tiers
-from src.schemas.design_tier import DesignTierResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.database import get_db
+from src.schemas.design_tier import DesignTierResponse
+from src.services.design_tier_crud import get_active_design_tiers
 
 router = APIRouter()
 

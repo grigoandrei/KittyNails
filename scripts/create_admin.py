@@ -1,7 +1,9 @@
-from passlib.context import CryptContext
 import getpass
-import secrets
 import os
+import secrets
+import sys
+
+from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -11,7 +13,7 @@ confirm = getpass.getpass("Confirm password: ")
 
 if password != confirm:
     print("Passwords don't match!")
-    exit(1)
+    sys.exit(1)
 
 hashed = pwd_context.hash(password)
 jwt_secret = secrets.token_hex(32)
@@ -20,7 +22,7 @@ env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 
 if os.path.exists(env_path):
     with open(env_path, "r") as f:
-        lines = [l for l in f.readlines()
+        lines = [l for l in f
                  if not l.startswith(("ADMIN_USERNAME=", "ADMIN_PASSWORD_HASH=", "JWT_SECRET="))]
 else:
     lines = []

@@ -20,6 +20,6 @@ class WeeklyIncome(BaseModel):
 @router.get("/weekly-income", response_model=list[WeeklyIncome])
 async def get_weekly_income(
     start: date,
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ):
     return await weekly_income(db, start)

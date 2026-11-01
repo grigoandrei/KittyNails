@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-from src.auth import verify_password, create_access_token
+
+from src.auth import create_access_token, verify_password
 from src.config import settings
 from src.limiter import limiter
 

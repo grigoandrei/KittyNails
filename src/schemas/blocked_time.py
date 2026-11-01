@@ -1,6 +1,8 @@
-from pydantic import BaseModel, ConfigDict, model_validator
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, model_validator
+
 
 class BlockedTimeCreate(BaseModel):
     start_time: datetime

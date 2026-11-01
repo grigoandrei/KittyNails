@@ -1,9 +1,12 @@
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import Integer, Time, DateTime
-from src.database import Base
-from datetime import time, datetime, timezone
 import uuid
+from datetime import UTC, datetime, time
 from uuid import uuid4
+
+from sqlalchemy import DateTime, Integer, Time
+from sqlalchemy.orm import Mapped, mapped_column
+
+from src.database import Base
+
 
 class AvailabilityRules(Base):
     __tablename__ = "availability_rules"
@@ -12,4 +15,4 @@ class AvailabilityRules(Base):
     day_of_week: Mapped[int] = mapped_column(Integer, nullable=False)
     start_time: Mapped[time] = mapped_column(Time, nullable=False)
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

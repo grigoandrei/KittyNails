@@ -4,7 +4,6 @@
 import os
 
 import aws_cdk as cdk
-
 from kitty_nails_stack import KittyNailsStack
 
 app = cdk.App()

@@ -1,10 +1,16 @@
-from src.schemas.blocked_time import BlockedTimeCreate, BlockedTimeResponse
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.database import get_db
-from uuid import UUID
-from src.services.blocked_time_service import create_blocked_time, delete_blocked_time, get_blocked_times
+
 from src.auth import get_current_admin
+from src.database import get_db
+from src.schemas.blocked_time import BlockedTimeCreate, BlockedTimeResponse
+from src.services.blocked_time_service import (
+    create_blocked_time,
+    delete_blocked_time,
+    get_blocked_times,
+)
 
 router = APIRouter(dependencies=[Depends(get_current_admin)])
 

@@ -5,10 +5,13 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-
 from src.config import settings
 from src.database import Base
-from src.models import Appointment, NailType, DesignTier  # noqa: F401 - registers models
+from src.models import (  # noqa: F401 - registers models
+    Appointment,
+    DesignTier,
+    NailType,
+)
 
 # Alembic Config object
 config = context.config

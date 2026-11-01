@@ -1,9 +1,12 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from src.schemas.design_tier import DesignTierCreate, DesignTierUpdate
-from src.models.design_tier import DesignTier
-from sqlalchemy import select
-from src.exceptions import NotFoundError, ConflictError
 from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.exceptions import ConflictError, NotFoundError
+from src.models.design_tier import DesignTier
+from src.schemas.design_tier import DesignTierCreate, DesignTierUpdate
+
 
 async def create_design_tier(data: DesignTierCreate, db: AsyncSession) -> DesignTier:
     result = await db.execute(select(DesignTier).where(DesignTier.name == data.name))

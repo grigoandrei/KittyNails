@@ -34,9 +34,13 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.25.0",
     "httpx>=0.28.1",
-    "ruff>=0.11.0",
+    "ruff>=0.16,<0.17",
     "hypothesis>=6.100.0",
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI declares dependencies and params as call defaults by design.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.File", "fastapi.Form", "fastapi.Body", "fastapi.Header"]

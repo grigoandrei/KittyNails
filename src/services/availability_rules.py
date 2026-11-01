@@ -1,9 +1,15 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from src.schemas.availability_rule import AvailabilityRulesCreate, AvailabilityRulesUpdate
-from src.models.availability_rules import AvailabilityRules
-from sqlalchemy import select
-from src.exceptions import NotFoundError, ValidationError
 from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.exceptions import NotFoundError, ValidationError
+from src.models.availability_rules import AvailabilityRules
+from src.schemas.availability_rule import (
+    AvailabilityRulesCreate,
+    AvailabilityRulesUpdate,
+)
+
 
 async def create_availability_rule(data: AvailabilityRulesCreate, db: AsyncSession) -> AvailabilityRules:
 

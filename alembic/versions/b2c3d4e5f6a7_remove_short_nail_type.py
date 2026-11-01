@@ -5,16 +5,16 @@ Revises: a1b2c3d4e5f6
 Create Date: 2026-08-08 21:30:00.000000
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
+from datetime import UTC
 
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision: str = 'b2c3d4e5f6a7'
-down_revision: Union[str, Sequence[str], None] = 'a1b2c3d4e5f6'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'a1b2c3d4e5f6'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -37,9 +37,9 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Re-insert the Short nail type and restore original durations."""
     import uuid
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     short_id = str(uuid.uuid4())
     op.execute(
         f"INSERT INTO nail_types (id, name, price, duration_minutes, sort_order, is_active, created_at, updated_at) "

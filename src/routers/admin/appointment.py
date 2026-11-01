@@ -36,7 +36,7 @@ def _to_response(appointment: Appointment, image_url: str | None) -> Appointment
 async def create_manual_appointment(
     data: AppointmentCreate,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ):
     """Admin-created booking for a client who arranged via Instagram.
 
@@ -58,7 +58,7 @@ async def create_manual_appointment(
 async def edit_appointment(
     appointment_id: UUID,
     data: AppointmentUpdate,
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ):
     """Edit an appointment's start time, duration, and/or removal flag.
 
@@ -78,7 +78,7 @@ async def get_appointment(
     date_to: date | None = None,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
-    db: AsyncSession = Depends(get_db)  # noqa: B008
+    db: AsyncSession = Depends(get_db)
 ):
     appointments = await list_appointments(
         db, status=status, date_from=date_from, date_to=date_to, skip=skip, limit=limit
@@ -91,13 +91,13 @@ async def get_appointment(
     return [_to_response(a, url) for a, url in zip(appointments, image_urls)]
 
 @router.patch("/{appointment_id}/cancel", response_model=AppointmentResponse)
-async def cancel_appointment(appointment_id: UUID, db: AsyncSession = Depends(get_db)):  # noqa: B008
+async def cancel_appointment(appointment_id: UUID, db: AsyncSession = Depends(get_db)):
     return await update_appointment_status(db, appointment_id, Status.CANCELED)
 
 @router.patch("/{appointment_id}/no-show", response_model=AppointmentResponse)
-async def no_show_appointment(appointment_id: UUID, db: AsyncSession = Depends(get_db)):  # noqa: B008
+async def no_show_appointment(appointment_id: UUID, db: AsyncSession = Depends(get_db)):
     return await update_appointment_status(db, appointment_id, Status.NO_SHOW)
 
 @router.patch("/{appointment_id}/complete", response_model=AppointmentResponse)
-async def complete_appointment(appointment_id: UUID, db: AsyncSession = Depends(get_db)):  # noqa: B008
+async def complete_appointment(appointment_id: UUID, db: AsyncSession = Depends(get_db)):
     return await update_appointment_status(db, appointment_id, Status.COMPLETED)

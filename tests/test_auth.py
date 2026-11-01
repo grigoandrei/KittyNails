@@ -1,7 +1,7 @@
-import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
+from src.auth import create_access_token, get_current_admin
 from src.main import app
-from src.auth import get_current_admin, create_access_token
 
 
 async def test_login_success(client):

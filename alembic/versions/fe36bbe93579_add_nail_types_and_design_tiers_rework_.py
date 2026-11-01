@@ -5,19 +5,19 @@ Revises: df7d1ac1f4cc
 Create Date: 2026-08-05 15:28:28.181862
 
 """
-from typing import Sequence, Union
 import uuid
-from datetime import datetime, timezone
+from collections.abc import Sequence
+from datetime import UTC, datetime
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'fe36bbe93579'
-down_revision: Union[str, Sequence[str], None] = 'df7d1ac1f4cc'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'df7d1ac1f4cc'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -48,7 +48,7 @@ def upgrade() -> None:
     )
 
     # Seed the 3 nail types and 3 design tiers (owner can adjust prices/durations later)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     def _row(name, price, duration, order):
         return {

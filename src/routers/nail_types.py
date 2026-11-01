@@ -1,8 +1,9 @@
-from src.services.nail_type_crud import get_active_nail_types
-from src.schemas.nail_type import NailTypeResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.database import get_db
+from src.schemas.nail_type import NailTypeResponse
+from src.services.nail_type_crud import get_active_nail_types
 
 router = APIRouter()
 

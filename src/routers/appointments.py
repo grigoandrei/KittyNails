@@ -25,7 +25,7 @@ async def create(
     request: Request,
     data: AppointmentCreate,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ):
     appointment = await create_appointment(data, db)
 

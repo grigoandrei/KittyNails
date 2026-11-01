@@ -32,7 +32,7 @@ router = APIRouter()
 async def create_session(
     request: Request,
     data: AppointmentCreate,
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ):
     """Create a Stripe Checkout Session for the €15 deposit.
 
@@ -50,7 +50,7 @@ async def create_session(
 @router.post("/api/webhooks/stripe")
 async def stripe_webhook(
     request: Request,
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ):
     """Handle Stripe webhook events.
 

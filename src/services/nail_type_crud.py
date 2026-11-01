@@ -1,9 +1,12 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from src.schemas.nail_type import NailTypeCreate, NailTypeUpdate
-from src.models.nail_type import NailType
-from sqlalchemy import select
-from src.exceptions import NotFoundError, ConflictError
 from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.exceptions import ConflictError, NotFoundError
+from src.models.nail_type import NailType
+from src.schemas.nail_type import NailTypeCreate, NailTypeUpdate
+
 
 async def create_nail_type(data: NailTypeCreate, db: AsyncSession) -> NailType:
     result = await db.execute(select(NailType).where(NailType.name == data.name))

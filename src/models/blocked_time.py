@@ -1,9 +1,12 @@
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, DateTime
-from src.database import Base
-from datetime import datetime, timezone
 import uuid
+from datetime import UTC, datetime
 from uuid import uuid4
+
+from sqlalchemy import DateTime, String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from src.database import Base
+
 
 class BlockedTime(Base):
     __tablename__ = "blocked_times"
@@ -12,4 +15,4 @@ class BlockedTime(Base):
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

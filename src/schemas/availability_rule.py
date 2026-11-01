@@ -1,6 +1,8 @@
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from datetime import datetime, time
 from uuid import UUID
-from datetime import time, datetime
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
 
 class AvailabilityRulesCreate(BaseModel):
     day_of_week: int = Field(ge=0, le=6)

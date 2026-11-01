@@ -1,9 +1,12 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from src.schemas.blocked_time import BlockedTimeCreate
-from src.models.blocked_time import BlockedTime
-from sqlalchemy import select
-from src.exceptions import NotFoundError, ConflictError, ValidationError
 from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.exceptions import ConflictError, NotFoundError, ValidationError
+from src.models.blocked_time import BlockedTime
+from src.schemas.blocked_time import BlockedTimeCreate
+
 
 async def create_blocked_time(data: BlockedTimeCreate, db: AsyncSession) -> BlockedTime:
     if data.start_time >= data.end_time:

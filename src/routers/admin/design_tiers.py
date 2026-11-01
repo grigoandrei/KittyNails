@@ -1,10 +1,20 @@
-from src.schemas.design_tier import DesignTierCreate, DesignTierResponse, DesignTierUpdate
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.database import get_db
-from src.services.design_tier_crud import create_design_tier, update_design_tier, get_all_design_tiers
+
 from src.auth import get_current_admin
-from uuid import UUID
+from src.database import get_db
+from src.schemas.design_tier import (
+    DesignTierCreate,
+    DesignTierResponse,
+    DesignTierUpdate,
+)
+from src.services.design_tier_crud import (
+    create_design_tier,
+    get_all_design_tiers,
+    update_design_tier,
+)
 
 router = APIRouter(dependencies=[Depends(get_current_admin)])
 

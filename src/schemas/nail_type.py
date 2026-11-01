@@ -1,6 +1,8 @@
-from pydantic import BaseModel, ConfigDict, Field
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class NailTypeCreate(BaseModel):
     name: str = Field(max_length=100)

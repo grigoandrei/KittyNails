@@ -1,10 +1,21 @@
-from src.schemas.availability_rule import AvailabilityRulesCreate, AvailabilityRulesUpdate, AvailabilityRulesResponse
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.database import get_db
-from uuid import UUID
-from src.services.availability_rules import create_availability_rule, update_availability_rules, delete_availability_rule, get_all_availability_rules
+
 from src.auth import get_current_admin
+from src.database import get_db
+from src.schemas.availability_rule import (
+    AvailabilityRulesCreate,
+    AvailabilityRulesResponse,
+    AvailabilityRulesUpdate,
+)
+from src.services.availability_rules import (
+    create_availability_rule,
+    delete_availability_rule,
+    get_all_availability_rules,
+    update_availability_rules,
+)
 
 router = APIRouter(dependencies=[Depends(get_current_admin)])
 

@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from src.database import get_db
-from src.services.slots_service import get_available_slots, get_available_dates
 from datetime import date, datetime
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.database import get_db
+from src.services.slots_service import get_available_dates, get_available_slots
 
 router = APIRouter(prefix="/api/slots", tags=["slots"])
 

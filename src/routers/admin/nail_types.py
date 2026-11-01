@@ -1,10 +1,16 @@
-from src.schemas.nail_type import NailTypeCreate, NailTypeResponse, NailTypeUpdate
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.database import get_db
-from src.services.nail_type_crud import create_nail_type, update_nail_type, get_all_nail_types
+
 from src.auth import get_current_admin
-from uuid import UUID
+from src.database import get_db
+from src.schemas.nail_type import NailTypeCreate, NailTypeResponse, NailTypeUpdate
+from src.services.nail_type_crud import (
+    create_nail_type,
+    get_all_nail_types,
+    update_nail_type,
+)
 
 router = APIRouter(dependencies=[Depends(get_current_admin)])
 

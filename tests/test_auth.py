@@ -1,6 +1,7 @@
 from httpx import ASGITransport, AsyncClient
 
 from src.auth import create_access_token, get_current_admin
+from src.config import settings
 from src.main import app
 
 
@@ -9,16 +10,23 @@ async def test_login_success(client):
         "username": "admin",
         "password": "testpass",
     })
-    # This will fail because we override get_current_admin in conftest
-    # and config has actual hash values. We test the flow without real creds.
-    # The important thing is the endpoint exists and responds.
-    assert response.status_code in [200, 401]
+    assert response.status_code == 200
+    assert response.json()["access_token"]
 
 
 async def test_login_wrong_password(client):
     response = await client.post("/api/admin/login", json={
         "username": "admin",
         "password": "wrongpassword",
+    })
+    assert response.status_code == 401
+
+
+async def test_login_malformed_hash_returns_401(client, monkeypatch):
+    monkeypatch.setattr(settings, "ADMIN_PASSWORD_HASH", "$2b$12$placeholder")
+    response = await client.post("/api/admin/login", json={
+        "username": "admin",
+        "password": "testpass",
     })
     assert response.status_code == 401
 

@@ -40,6 +40,7 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI declares dependencies and params as call defaults by design.

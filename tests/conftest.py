@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import bcrypt
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -40,6 +41,15 @@ def at(target_date: date, hour: int, minute: int = 0) -> str:
 # session issues more booking/analysis POSTs than the hourly caps allow, all
 # from the same test client IP). Disable enforcement for tests.
 limiter.enabled = False
+
+# Known admin credentials so login tests don't depend on the developer's .env
+# or the placeholder hash CI sets.
+TEST_ADMIN_USERNAME = "admin"
+TEST_ADMIN_PASSWORD = "testpass"
+settings.ADMIN_USERNAME = TEST_ADMIN_USERNAME
+settings.ADMIN_PASSWORD_HASH = bcrypt.hashpw(
+    TEST_ADMIN_PASSWORD.encode("utf-8"), bcrypt.gensalt(rounds=4)
+).decode("utf-8")
 
 engine_test = create_async_engine(settings.TEST_DATABASE_URL, poolclass=NullPool)
 async_session_test = async_sessionmaker(engine_test, expire_on_commit=False)

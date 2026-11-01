@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime, timedelta
 
 import bcrypt as _bcrypt
@@ -9,11 +10,21 @@ from src.config import settings
 
 security = HTTPBearer()
 
+_BCRYPT_HASH = re.compile(r"\$2[abxy]\$\d{2}\$[./A-Za-z0-9]{53}")
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return _bcrypt.checkpw(
-        plain_password.encode("utf-8"), hashed_password.encode("utf-8")
-    )
+    # A malformed stored hash means nobody can log in. Treat it as a failed
+    # login so the endpoint returns 401 and not a 500. Check the shape first:
+    # some bcrypt builds panic on a short hash instead of raising ValueError.
+    if not _BCRYPT_HASH.fullmatch(hashed_password):
+        return False
+    try:
+        return _bcrypt.checkpw(
+            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
+        )
+    except ValueError:
+        return False
 
 
 def create_access_token(data: dict) -> str:

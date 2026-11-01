@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useForm } from "react-hook-form";
 import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, getDay, getDaysInMonth, isSameDay } from "date-fns";
@@ -12,13 +12,8 @@ import {
   fetchSlots,
   fetchNailTypes,
   createCheckoutSession,
-  fetchPromotion,
-  promoAppliesTo,
-  applyPromo,
-  berlinDay,
   type NailAnalysisResponse,
   type NailType,
-  type Promotion,
 } from "../api";
 
 function cn(...inputs: (string | undefined | null | false)[]) {
@@ -31,19 +26,6 @@ const REMOVAL_PRICE = 15;
 
 type Step = "photo" | "estimate" | "datetime" | "confirm";
 
-// Optional seasonal look for the modal. It only restyles: the booking flow is
-// the same with or without a skin, so a skin can be dropped at any time.
-export interface BookingSkin {
-  // Scoped class that remaps the theme color tokens inside the modal
-  className: string;
-  overlayClassName?: string;
-  // Decorations rendered at the top of the modal
-  header?: ReactNode;
-  // Small badge drawn on a calendar day
-  dayBadge?: (date: Date) => ReactNode;
-  confirmedTitle?: string;
-}
-
 interface ClientInfo {
   email: string;
   phone: string;
@@ -52,10 +34,9 @@ interface ClientInfo {
 interface BookingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  skin?: BookingSkin;
 }
 
-export function BookingModal({ open, onOpenChange, skin }: BookingModalProps) {
+export function BookingModal({ open, onOpenChange }: BookingModalProps) {
   const [step, setStep] = useState<Step>("photo");
 
   // Photo upload
@@ -83,13 +64,6 @@ export function BookingModal({ open, onOpenChange, skin }: BookingModalProps) {
 
   // Nail removal add-on (flat surcharge, price only)
   const [needsRemoval, setNeedsRemoval] = useState(false);
-
-  // Seasonal promo, for display only (the backend applies it at booking)
-  const [promo, setPromo] = useState<Promotion | null>(null);
-
-  useEffect(() => {
-    if (open) fetchPromotion().then(setPromo).catch(() => setPromo(null));
-  }, [open]);
 
   // Submission
   const [submitting, setSubmitting] = useState(false);
@@ -336,17 +310,15 @@ export function BookingModal({ open, onOpenChange, skin }: BookingModalProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className={cn("fixed inset-0 bg-black/50 backdrop-blur-sm z-50", skin?.overlayClassName)} />
-        <Dialog.Content className={cn("fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto bg-card rounded-2xl shadow-xl border border-border p-6", skin?.className)}>
-          {skin?.header}
-
+        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto bg-card rounded-2xl shadow-xl border border-border p-6">
           {/* Close button */}
-          <Dialog.Close className="absolute top-4 right-4 z-10 p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-secondary transition-colors">
+          <Dialog.Close className="absolute top-4 right-4 p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-secondary transition-colors">
             <X className="w-5 h-5" />
           </Dialog.Close>
 
           <Dialog.Title className="font-[family-name:var(--font-serif)] text-xl font-semibold mb-1">
-            {confirmed ? skin?.confirmedTitle ?? "Booking Confirmed" : "Book an Appointment"}
+            {confirmed ? "Booking Confirmed" : "Book an Appointment"}
           </Dialog.Title>
           <Dialog.Description className="text-sm text-muted-foreground mb-6">
             {confirmed
@@ -370,7 +342,7 @@ export function BookingModal({ open, onOpenChange, skin }: BookingModalProps) {
           )}
 
           {/* Confirmed State */}
-          {confirmed && <ConfirmedView analysis={analysis} promo={promo} japaneseManicure={japaneseManicure} selectedTime={selectedTime} email={getValues().email} onClose={() => onOpenChange(false)} />}
+          {confirmed && <ConfirmedView analysis={analysis} japaneseManicure={japaneseManicure} selectedTime={selectedTime} email={getValues().email} onClose={() => onOpenChange(false)} />}
 
           {/* Step 1: Photo Upload */}
           {!confirmed && step === "photo" && (
@@ -387,7 +359,7 @@ export function BookingModal({ open, onOpenChange, skin }: BookingModalProps) {
 
           {/* Step 2: AI Estimate */}
           {!confirmed && step === "estimate" && (
-            <EstimateStep analysis={analysis} promo={promo} onContinue={() => setStep("datetime")} onBack={goBack} />
+            <EstimateStep analysis={analysis} onContinue={() => setStep("datetime")} onBack={goBack} />
           )}
 
           {/* Step 3: Date & Time */}
@@ -409,7 +381,7 @@ export function BookingModal({ open, onOpenChange, skin }: BookingModalProps) {
               onRetrySlots={loadTimeSlots}
               onContinue={() => setStep("confirm")}
               onBack={goBack}
-              renderCalendar={() => renderCalendar(calendarMonth, selectedDate, isDateAvailable, setSelectedDate, skin?.dayBadge)}
+              renderCalendar={() => renderCalendar(calendarMonth, selectedDate, isDateAvailable, setSelectedDate)}
             />
           )}
 
@@ -417,7 +389,6 @@ export function BookingModal({ open, onOpenChange, skin }: BookingModalProps) {
           {!confirmed && step === "confirm" && (
             <ConfirmStep
               analysis={analysis}
-              promo={promo}
               japaneseManicure={japaneseManicure}
               selectedTime={selectedTime}
               submitting={submitting}
@@ -441,8 +412,7 @@ function renderCalendar(
   calendarMonth: Date,
   selectedDate: Date | null,
   isDateAvailable: (day: number) => boolean,
-  setSelectedDate: (d: Date) => void,
-  dayBadge?: (date: Date) => ReactNode
+  setSelectedDate: (d: Date) => void
 ) {
   const daysInMonth = getDaysInMonth(calendarMonth);
   const firstDayOfWeek = getDay(startOfMonth(calendarMonth));
@@ -470,13 +440,12 @@ function renderCalendar(
             disabled={!available}
             onClick={() => setSelectedDate(dateObj)}
             className={cn(
-              "relative w-full aspect-square rounded-lg text-sm flex items-center justify-center transition-colors",
+              "w-full aspect-square rounded-lg text-sm flex items-center justify-center transition-colors",
               available ? "hover:bg-primary/10 cursor-pointer" : "text-muted-foreground/40 cursor-not-allowed",
               isSelected && "bg-primary text-white hover:bg-primary-dark"
             )}
           >
             {day}
-            {available && dayBadge?.(dateObj)}
           </button>
         );
       })}
@@ -484,9 +453,8 @@ function renderCalendar(
   );
 }
 
-function ConfirmedView({ analysis, promo, japaneseManicure, selectedTime, email, onClose }: {
+function ConfirmedView({ analysis, japaneseManicure, selectedTime, email, onClose }: {
   analysis: NailAnalysisResponse | null;
-  promo: Promotion | null;
   japaneseManicure: NailType | null;
   selectedTime: string | null;
   email: string;
@@ -495,14 +463,9 @@ function ConfirmedView({ analysis, promo, japaneseManicure, selectedTime, email,
   const serviceName = japaneseManicure
     ? "Japanese Manicure"
     : `${analysis?.nail_type} + ${analysis?.design_tier}`;
-  const basePrice = japaneseManicure
+  const price = japaneseManicure
     ? japaneseManicure.price
     : analysis?.estimated_price ?? 0;
-  const discounted =
-    !japaneseManicure &&
-    !!selectedTime &&
-    promoAppliesTo(promo, analysis?.design_tier, berlinDay(selectedTime));
-  const price = discounted && promo ? applyPromo(basePrice, promo) : basePrice;
 
   return (
     <div className="text-center py-8">
@@ -645,9 +608,8 @@ function PhotoStep({ previewUrl, selectedFile, analyzing, analyzeError, onFileSe
   );
 }
 
-function EstimateStep({ analysis, promo, onContinue, onBack }: {
+function EstimateStep({ analysis, onContinue, onBack }: {
   analysis: NailAnalysisResponse | null;
-  promo: Promotion | null;
   onContinue: () => void;
   onBack: () => void;
 }) {
@@ -686,13 +648,6 @@ function EstimateStep({ analysis, promo, onContinue, onBack }: {
         <p className="text-sm text-muted-foreground italic">
           "{analysis.reasoning}"
         </p>
-
-        {promo && promoAppliesTo(promo, analysis.design_tier) && (
-          <p className="text-sm font-medium text-primary">
-            {promo.name}: {promo.percent}% off, €{applyPromo(analysis.estimated_price, promo).toFixed(2)}{" "}
-            for appointments {format(parseISO(promo.start), "MMM d")} to {format(parseISO(promo.end), "MMM d")}
-          </p>
-        )}
       </div>
 
       {/* Disclaimer */}
@@ -860,9 +815,8 @@ function DateTimeStep({ calendarMonth, canGoPrevMonth, datesLoading, datesError,
   );
 }
 
-function ConfirmStep({ analysis, promo, japaneseManicure, selectedTime, submitting, needsRemoval, onNeedsRemovalChange, register, errors, onSubmit, onBack }: {
+function ConfirmStep({ analysis, japaneseManicure, selectedTime, submitting, needsRemoval, onNeedsRemovalChange, register, errors, onSubmit, onBack }: {
   analysis: NailAnalysisResponse | null;
-  promo: Promotion | null;
   japaneseManicure: NailType | null;
   selectedTime: string | null;
   submitting: boolean;
@@ -879,14 +833,9 @@ function ConfirmStep({ analysis, promo, japaneseManicure, selectedTime, submitti
   const duration = japaneseManicure
     ? japaneseManicure.duration_minutes
     : analysis?.estimated_duration_minutes ?? 0;
-  const basePrice = japaneseManicure
+  const price = japaneseManicure
     ? japaneseManicure.price
     : analysis?.estimated_price ?? 0;
-  const discounted =
-    !japaneseManicure &&
-    !!selectedTime &&
-    promoAppliesTo(promo, analysis?.design_tier, berlinDay(selectedTime));
-  const price = discounted && promo ? applyPromo(basePrice, promo) : basePrice;
 
   return (
     <form onSubmit={onSubmit}>
@@ -902,19 +851,8 @@ function ConfirmStep({ analysis, promo, japaneseManicure, selectedTime, submitti
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Price</span>
-          <span className="font-medium">
-            {discounted && (
-              <span className="mr-2 text-muted-foreground line-through">€{basePrice.toFixed(2)}</span>
-            )}
-            €{price.toFixed(2)}
-          </span>
+          <span className="font-medium">€{price.toFixed(2)}</span>
         </div>
-        {discounted && promo && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Discount</span>
-            <span className="font-medium text-primary">{promo.name} {promo.percent}% off</span>
-          </div>
-        )}
         {needsRemoval && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Nail removal</span>

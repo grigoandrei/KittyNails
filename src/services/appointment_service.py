@@ -55,9 +55,7 @@ async def create_appointment(
     total_minutes = nail_type.duration_minutes + (
         design_tier.duration_minutes if design_tier else 0
     )
-    quoted_price = compute_price(
-        nail_type, design_tier, data.needs_removal, data.start_time
-    )
+    quoted_price = compute_price(nail_type, design_tier, data.needs_removal)
 
     end_time = data.start_time + timedelta(minutes=total_minutes)
 
@@ -158,9 +156,7 @@ async def update_appointment(
         duration = appointment.end_time - appointment.start_time
     new_end = new_start + duration
 
-    # Re-derive price from the (unchanged) service rows + removal flag. The
-    # promo is keyed on the appointment date, so moving it in or out of the
-    # promo window updates the discount.
+    # Re-derive price from the (unchanged) service rows + removal flag.
     nt_result = await db.execute(
         select(NailType).where(NailType.id == appointment.nail_type_id)
     )
@@ -175,7 +171,7 @@ async def update_appointment(
         )
         design_tier = dt_result.scalar_one_or_none()
 
-    quoted_price = compute_price(nail_type, design_tier, new_needs_removal, new_start)
+    quoted_price = compute_price(nail_type, design_tier, new_needs_removal)
 
     # Working hours for the (possibly new) day.
     rules_result = await db.execute(

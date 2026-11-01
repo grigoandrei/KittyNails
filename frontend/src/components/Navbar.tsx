@@ -5,10 +5,9 @@ import { INSTAGRAM_HANDLE, INSTAGRAM_URL, InstagramIcon } from "./Instagram";
 
 interface NavbarProps {
   onBookNow: () => void;
-  topOffset?: number;
 }
 
-export function Navbar({ onBookNow, topOffset = 0 }: NavbarProps) {
+export function Navbar({ onBookNow }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -20,8 +19,7 @@ export function Navbar({ onBookNow, topOffset = 0 }: NavbarProps) {
 
   return (
     <nav
-      style={{ top: topOffset }}
-      className={`fixed left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
           ? "bg-card/95 backdrop-blur-md shadow-sm border-b border-border"
           : "bg-transparent"

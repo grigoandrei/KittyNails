@@ -14,7 +14,25 @@ import {
   type DesignTier,
 } from "./api";
 
-const STATUS_OPTIONS = ["", "BOOKED", "CANCELLED", "NO_SHOW", "COMPLETED"];
+const STATUS_OPTIONS = ["", "BOOKED", "CANCELED", "NO_SHOW", "COMPLETED"];
+
+// Local calendar date as YYYY-MM-DD, the format of <input type="date">.
+function toDateInput(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// Monday and Sunday of the current week.
+function currentWeekRange(): { from: string; to: string } {
+  const today = new Date();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { from: toDateInput(monday), to: toDateInput(sunday) };
+}
 
 /**
  * Human-readable duration between two ISO timestamps, e.g. "3h", "90 min",
@@ -82,9 +100,9 @@ function toBerlinISO(localValue: string): string {
 export function AppointmentsPage() {
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [statusFilter, setStatusFilter] = useState("BOOKED");
+  const [dateFrom, setDateFrom] = useState(() => currentWeekRange().from);
+  const [dateTo, setDateTo] = useState(() => currentWeekRange().to);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // Add-appointment modal
@@ -246,7 +264,7 @@ export function AppointmentsPage() {
     switch (status) {
       case "BOOKED":
         return "bg-blue-100 text-blue-700";
-      case "CANCELLED":
+      case "CANCELED":
         return "bg-red-100 text-red-700";
       case "NO_SHOW":
         return "bg-yellow-100 text-yellow-700";

@@ -30,12 +30,14 @@ class AppointmentCreate(BaseModel):
 
 
 class AppointmentUpdate(BaseModel):
-    """Admin edit of an existing appointment (partial). Model A: duration is an
-    explicit override; price is re-derived from the service + needs_removal."""
+    """Admin edit of an existing appointment (partial). Duration and price are
+    explicit overrides. Without a price override, the current price is kept and
+    only adjusted by the removal fee when needs_removal changes."""
 
     start_time: datetime | None = None
-    duration_minutes: int | None = Field(default=None, gt=0, le=600)
+    duration_minutes: int | None = Field(default=None, ge=15, le=600)
     needs_removal: bool | None = None
+    quoted_price: float | None = Field(default=None, ge=0, le=9999)
 
     @field_validator("start_time")
     @classmethod

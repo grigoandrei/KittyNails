@@ -300,6 +300,63 @@ async def test_edit_appointment_toggle_removal_recomputes_price(client):
     assert resp.json()["quoted_price"] == 45.00
 
 
+async def test_edit_appointment_price_override(client):
+    appt_id, _, _ = await _book_at(client, 10)
+    resp = await client.patch(f"/api/admin/appointments/{appt_id}", json={
+        "quoted_price": 72.50,
+    })
+    assert resp.status_code == 200
+    assert resp.json()["quoted_price"] == 72.50
+
+
+async def test_edit_appointment_price_override_wins_over_removal(client):
+    appt_id, _, _ = await _book_at(client, 10)
+    resp = await client.patch(f"/api/admin/appointments/{appt_id}", json={
+        "needs_removal": True,
+        "quoted_price": 50.00,
+    })
+    assert resp.status_code == 200
+    assert resp.json()["needs_removal"] is True
+    assert resp.json()["quoted_price"] == 50.00
+
+
+async def test_edit_appointment_custom_price_kept_on_time_change(client):
+    """Editing only the time must not wipe a custom price."""
+    appt_id, _, _ = await _book_at(client, 10)
+    await client.patch(f"/api/admin/appointments/{appt_id}", json={
+        "quoted_price": 80.00,
+    })
+    resp = await client.patch(f"/api/admin/appointments/{appt_id}", json={
+        "start_time": at(MONDAY, 11),
+    })
+    assert resp.status_code == 200
+    assert resp.json()["quoted_price"] == 80.00
+
+
+async def test_edit_appointment_removal_toggle_adjusts_custom_price(client):
+    """Toggling removal adds or subtracts the fee on top of a custom price."""
+    appt_id, _, _ = await _book_at(client, 10)
+    await client.patch(f"/api/admin/appointments/{appt_id}", json={
+        "quoted_price": 80.00,
+    })
+    resp = await client.patch(f"/api/admin/appointments/{appt_id}", json={
+        "needs_removal": True,
+    })
+    assert resp.json()["quoted_price"] == 95.00
+    resp = await client.patch(f"/api/admin/appointments/{appt_id}", json={
+        "needs_removal": False,
+    })
+    assert resp.json()["quoted_price"] == 80.00
+
+
+async def test_edit_appointment_negative_price_rejected(client):
+    appt_id, _, _ = await _book_at(client, 10)
+    resp = await client.patch(f"/api/admin/appointments/{appt_id}", json={
+        "quoted_price": -5,
+    })
+    assert resp.status_code == 422
+
+
 async def test_edit_appointment_conflict_excludes_self(client):
     """Editing an appointment without moving it must not conflict with itself."""
     appt_id, _, _ = await _book_at(client, 10)

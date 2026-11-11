@@ -294,6 +294,7 @@ export async function updateAdminAppointment(
     start_time?: string;
     duration_minutes?: number;
     needs_removal?: boolean;
+    quoted_price?: number;
   }
 ): Promise<AdminAppointment> {
   const res = await adminFetch(`/api/admin/appointments/${id}`, {

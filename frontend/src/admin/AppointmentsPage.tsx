@@ -125,6 +125,7 @@ export function AppointmentsPage() {
     start_time: "",
     duration_minutes: 0,
     needs_removal: false,
+    quoted_price: "",
   });
 
   const loadAppointments = () => {
@@ -232,6 +233,7 @@ export function AppointmentsPage() {
       start_time: toBerlinLocalInput(apt.start_time),
       duration_minutes: durationMin,
       needs_removal: !!apt.needs_removal,
+      quoted_price: apt.quoted_price.toFixed(2),
     });
     setEditing(apt);
   };
@@ -243,12 +245,18 @@ export function AppointmentsPage() {
       toast.error("Start time and a positive duration are required.");
       return;
     }
+    const price = Number(editForm.quoted_price);
+    if (editForm.quoted_price === "" || !Number.isFinite(price) || price < 0) {
+      toast.error("Price must be zero or more.");
+      return;
+    }
     setEditSubmitting(true);
     try {
       await updateAdminAppointment(editing.id, {
         start_time: toBerlinISO(editForm.start_time),
         duration_minutes: editForm.duration_minutes,
         needs_removal: editForm.needs_removal,
+        quoted_price: Math.round(price * 100) / 100,
       });
       toast.success("Appointment updated");
       setEditing(null);
@@ -583,8 +591,7 @@ export function AppointmentsPage() {
           >
             <h3 className="text-lg font-bold">Edit Appointment</h3>
             <p className="text-xs text-muted-foreground">
-              {editing.client_email} — price is recalculated from the service and
-              the removal option.
+              {editing.client_email}
             </p>
 
             <div>
@@ -606,7 +613,7 @@ export function AppointmentsPage() {
               </label>
               <input
                 type="number"
-                min={1}
+                min={15}
                 max={600}
                 step={15}
                 value={editForm.duration_minutes}
@@ -625,13 +632,36 @@ export function AppointmentsPage() {
               <input
                 type="checkbox"
                 checked={editForm.needs_removal}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, needs_removal: e.target.checked })
-                }
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  const current = Number(editForm.quoted_price) || 0;
+                  const next = Math.max(0, current + (checked ? 15 : -15));
+                  setEditForm({
+                    ...editForm,
+                    needs_removal: checked,
+                    quoted_price: next.toFixed(2),
+                  });
+                }}
                 className="h-4 w-4 accent-primary cursor-pointer"
               />
               Needs nail removal (+€15)
             </label>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Price (€) *</label>
+              <input
+                type="number"
+                min={0}
+                max={9999}
+                step={0.5}
+                value={editForm.quoted_price}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, quoted_price: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                required
+              />
+            </div>
 
             <div className="flex gap-2 justify-end pt-2">
               <button

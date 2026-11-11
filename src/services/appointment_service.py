@@ -156,22 +156,17 @@ async def update_appointment(
         duration = appointment.end_time - appointment.start_time
     new_end = new_start + duration
 
-    # Re-derive price from the (unchanged) service rows + removal flag.
-    nt_result = await db.execute(
-        select(NailType).where(NailType.id == appointment.nail_type_id)
-    )
-    nail_type = nt_result.scalar_one_or_none()
-    if not nail_type:
-        raise NotFoundError("Nail type not available!")
-
-    design_tier = None
-    if appointment.design_tier_id:
-        dt_result = await db.execute(
-            select(DesignTier).where(DesignTier.id == appointment.design_tier_id)
-        )
-        design_tier = dt_result.scalar_one_or_none()
-
-    quoted_price = compute_price(nail_type, design_tier, new_needs_removal)
+    # Price: an explicit override wins. Otherwise keep the locked-in price and
+    # only add or subtract the removal fee if the removal flag changed, so a
+    # custom price set earlier is never wiped by a later edit.
+    if data.quoted_price is not None:
+        quoted_price = round(data.quoted_price, 2)
+    else:
+        quoted_price = float(appointment.quoted_price)
+        if new_needs_removal != appointment.needs_removal:
+            fee = float(settings.NAIL_REMOVAL_PRICE)
+            quoted_price += fee if new_needs_removal else -fee
+            quoted_price = max(quoted_price, 0.0)
 
     # Working hours for the (possibly new) day.
     rules_result = await db.execute(

@@ -37,6 +37,8 @@ services:
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    # Reload every 6h so renewed certs are picked up
+    command: /bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & exec nginx -g "daemon off;"'
     depends_on:
       app:
         condition: service_healthy
@@ -57,6 +59,7 @@ services:
 
   certbot:
     image: certbot/certbot
+    restart: unless-stopped
     volumes:
       - ./certbot/www:/var/www/certbot
       - ./certbot/conf:/etc/letsencrypt

@@ -1,8 +1,8 @@
-import gallery1 from "../assets/gallery-1.jpeg";
+import gallery1 from "../assets/kitty.jpeg";
 import gallery2 from "../assets/gallery-2.jpeg";
-import gallery3 from "../assets/gallery-3.jpeg";
+import gallery3 from "../assets/gibly.jpeg";
 import gallery4 from "../assets/gallery-4.jpeg";
-import gallery5 from "../assets/gallery-5.jpeg";
+import gallery5 from "../assets/purple.jpeg";
 import gallery6 from "../assets/gallery-6.jpeg";
 
 export function Gallery() {

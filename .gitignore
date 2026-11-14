@@ -7,4 +7,5 @@ src/kitty_nails.egg-info
 __pycache__/
 pgdata/
 *.pyc
+CLAUDE.md
 build

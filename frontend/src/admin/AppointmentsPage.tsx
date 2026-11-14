@@ -97,6 +97,9 @@ function toBerlinISO(localValue: string): string {
 }
 
 
+// The removal-only service already is the removal, so the add-on never applies.
+const REMOVAL_ONLY_NAME = "Nail Removal";
+
 export function AppointmentsPage() {
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +111,8 @@ export function AppointmentsPage() {
   // Add-appointment modal
   const [showAdd, setShowAdd] = useState(false);
   const [nailTypes, setNailTypes] = useState<NailType[]>([]);
+  // Id of the removal-only service, used to hide the removal add-on.
+  const [removalOnlyId, setRemovalOnlyId] = useState<string | null>(null);
   const [designTiers, setDesignTiers] = useState<DesignTier[]>([]);
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -144,6 +149,15 @@ export function AppointmentsPage() {
   useEffect(() => {
     loadAppointments();
   }, [statusFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    fetchNailTypes()
+      .then((nt) => setRemovalOnlyId(nt.find((t) => t.name === REMOVAL_ONLY_NAME)?.id ?? null))
+      .catch(() => {});
+  }, []);
+
+  const addIsRemovalOnly = removalOnlyId !== null && form.nail_type_id === removalOnlyId;
+  const editIsRemovalOnly = removalOnlyId !== null && editing?.nail_type_id === removalOnlyId;
 
   const handleCancel = async (id: string) => {
     if (!confirm("Cancel this appointment?")) return;
@@ -213,7 +227,7 @@ export function AppointmentsPage() {
         design_tier_id: form.design_tier_id || null,
         client_email: form.client_email,
         start_time: toBerlinISO(form.start_time),
-        needs_removal: form.needs_removal,
+        needs_removal: addIsRemovalOnly ? false : form.needs_removal,
       });
       toast.success("Appointment created");
       setShowAdd(false);
@@ -255,7 +269,7 @@ export function AppointmentsPage() {
       await updateAdminAppointment(editing.id, {
         start_time: toBerlinISO(editForm.start_time),
         duration_minutes: editForm.duration_minutes,
-        needs_removal: editForm.needs_removal,
+        needs_removal: editIsRemovalOnly ? false : editForm.needs_removal,
         quoted_price: Math.round(price * 100) / 100,
       });
       toast.success("Appointment updated");
@@ -545,15 +559,17 @@ export function AppointmentsPage() {
               />
             </div>
 
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.needs_removal}
-                onChange={(e) => setForm({ ...form, needs_removal: e.target.checked })}
-                className="h-4 w-4 accent-primary cursor-pointer"
-              />
-              Needs nail removal (+€15)
-            </label>
+            {!addIsRemovalOnly && (
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.needs_removal}
+                  onChange={(e) => setForm({ ...form, needs_removal: e.target.checked })}
+                  className="h-4 w-4 accent-primary cursor-pointer"
+                />
+                Needs nail removal (+€15)
+              </label>
+            )}
 
             <div className="flex gap-2 justify-end pt-2">
               <button
@@ -628,6 +644,7 @@ export function AppointmentsPage() {
               />
             </div>
 
+            {!editIsRemovalOnly && (
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"
@@ -646,6 +663,7 @@ export function AppointmentsPage() {
               />
               Needs nail removal (+€15)
             </label>
+            )}
 
             <div>
               <label className="block text-sm font-medium mb-1">Price (€) *</label>

@@ -15,6 +15,10 @@ from src.schemas.appointment import AppointmentCreate, AppointmentUpdate
 from src.services.pricing import compute_price
 from src.services.slots_service import BERLIN_TZ, is_past_same_day_cutoff
 
+# The removal-only service. Booking it is the removal, so the removal add-on
+# must not be charged on top. Matched by name like Japanese Manicure.
+REMOVAL_ONLY_NAME = "Nail Removal"
+
 
 async def create_appointment(
     data: AppointmentCreate,
@@ -38,6 +42,12 @@ async def create_appointment(
 
     if not nail_type or not nail_type.is_active:
         raise NotFoundError("Nail type not available!")
+
+    if nail_type.name == REMOVAL_ONLY_NAME:
+        if data.design_tier_id:
+            raise ValidationError("Nail removal doesn't use a design tier!")
+        # The service already is the removal. Never add the fee twice.
+        data = data.model_copy(update={"needs_removal": False})
 
     # Design tier is optional (e.g. Japanese Manicure doesn't use one)
     design_tier = None
@@ -148,6 +158,12 @@ async def update_appointment(
         if data.needs_removal is not None
         else appointment.needs_removal
     )
+    # The removal-only service already is the removal. Never add the fee.
+    nail_type_name = (
+        await db.execute(select(NailType.name).where(NailType.id == appointment.nail_type_id))
+    ).scalar_one_or_none()
+    if nail_type_name == REMOVAL_ONLY_NAME:
+        new_needs_removal = False
 
     # Duration: explicit override if given, else keep the current duration.
     if data.duration_minutes is not None:

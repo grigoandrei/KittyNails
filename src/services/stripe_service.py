@@ -1,6 +1,7 @@
 """Stripe Checkout service for handling deposit payments."""
 
 import logging
+import time
 
 import stripe
 from sqlalchemy import select
@@ -8,12 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.models.appointment import Appointment, Status
-from src.models.design_tier import DesignTier
-from src.models.nail_type import NailType
 from src.schemas.appointment import AppointmentCreate
 from src.services.appointment_service import create_appointment
+from src.services.service_names import resolve_service_names
 
 logger = logging.getLogger(__name__)
+
+# A monthly set is one of a kind, so an abandoned checkout must release it
+# quickly. Stripe's minimum session lifetime is 30 minutes; add a little slack.
+MONTHLY_SET_CHECKOUT_TTL_SECONDS = 31 * 60
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -30,25 +34,43 @@ async def create_checkout_session(
     appointment = await create_appointment(data, db, status=Status.PENDING_PAYMENT)
 
     # Look up names for the checkout description
-    nt_result = await db.execute(
-        select(NailType).where(NailType.id == appointment.nail_type_id)
-    )
-    nail_type = nt_result.scalar_one_or_none()
-    service_name = nail_type.name if nail_type else "Nail Service"
-
-    if appointment.design_tier_id:
-        dt_result = await db.execute(
-            select(DesignTier).where(DesignTier.id == appointment.design_tier_id)
-        )
-        design_tier = dt_result.scalar_one_or_none()
-        if design_tier:
-            service_name += f" — {design_tier.name}"
+    service_name, design_tier_name = await resolve_service_names(appointment, db)
+    if design_tier_name:
+        service_name += f" — {design_tier_name}"
 
     if appointment.needs_removal:
         service_name += " (+ nail removal)"
 
-    # Create Stripe Checkout Session
-    session = stripe.checkout.Session.create(
+    # Default session lifetime is 24h. monthly sets expire sooner.
+    expires_at = (
+        int(time.time()) + MONTHLY_SET_CHECKOUT_TTL_SECONDS
+        if appointment.monthly_set_model_id
+        else None
+    )
+
+    # Create Stripe Checkout Session. If Stripe fails, cancel the pending
+    # appointment so it doesn't hold the slot or the monthly set forever.
+    try:
+        session = _create_stripe_session(appointment, data, service_name, expires_at)
+    except Exception:
+        appointment.status = Status.CANCELED
+        await db.commit()
+        raise
+
+    # Store the session ID on the appointment
+    appointment.stripe_session_id = session.id
+    await db.commit()
+    await db.refresh(appointment)
+
+    return {
+        "checkout_url": session.url,
+        "session_id": session.id,
+        "appointment_id": appointment.id,
+    }
+
+
+def _create_stripe_session(appointment, data, service_name, expires_at):
+    return stripe.checkout.Session.create(
         mode="payment",
         line_items=[
             {
@@ -67,21 +89,12 @@ async def create_checkout_session(
         customer_email=data.client_email,
         success_url=(
             f"{settings.FRONTEND_URL}/booking/success?session_id={{CHECKOUT_SESSION_ID}}"
+            # Lets the success page show monthly set copy.
+            + ("&type=monthly-sets" if appointment.monthly_set_model_id else "")
         ),
         cancel_url=f"{settings.FRONTEND_URL}/booking/cancelled",
-        expires_at=None,  # defaults to 24h
+        expires_at=expires_at,
     )
-
-    # Store the session ID on the appointment
-    appointment.stripe_session_id = session.id
-    await db.commit()
-    await db.refresh(appointment)
-
-    return {
-        "checkout_url": session.url,
-        "session_id": session.id,
-        "appointment_id": appointment.id,
-    }
 
 
 def _get_field(obj, key: str, default=None):

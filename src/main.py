@@ -5,7 +5,7 @@ from mangum import Mangum
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from src.exceptions import ConflictError, NotFoundError, ValidationError
+from src.exceptions import ConflictError, NotFoundError, StorageError, ValidationError
 from src.limiter import limiter
 from src.middleware import LoggingMiddleware
 from src.routers.admin.appointment import router as admin_appointments_router
@@ -13,11 +13,13 @@ from src.routers.admin.auth import router as admin_auth_router
 from src.routers.admin.availability import router as admin_availability_router
 from src.routers.admin.blocked_time import router as blocked_time_router
 from src.routers.admin.design_tiers import router as admin_design_tiers_router
+from src.routers.admin.monthly_sets import router as admin_monthly_set_router
 from src.routers.admin.nail_types import router as admin_nail_types_router
 from src.routers.admin.stats import router as admin_stats_router
 from src.routers.appointments import router as appointments_router
 from src.routers.checkout import router as checkout_router
 from src.routers.design_tiers import router as design_tiers_router
+from src.routers.monthly_sets import router as monthly_set_router
 from src.routers.nail_analysis import router as nail_analysis_router
 from src.routers.nail_types import router as nail_types_router
 from src.routers.slots import router as slots_router
@@ -42,6 +44,11 @@ async def not_found_handler(request: Request, exc: NotFoundError):
 @app.exception_handler(ConflictError)
 async def conflict_handler(request: Request, exc: ConflictError):
     return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(StorageError)
+async def storage_handler(request: Request, exc: StorageError):
+    return JSONResponse(status_code=502, content={"detail": str(exc)})
 
 
 @app.exception_handler(ValidationError)
@@ -69,6 +76,8 @@ app.include_router(blocked_time_router)
 app.include_router(admin_appointments_router)
 app.include_router(admin_stats_router)
 app.include_router(slots_router)
+app.include_router(monthly_set_router)
+app.include_router(admin_monthly_set_router)
 app.include_router(admin_auth_router)
 
 

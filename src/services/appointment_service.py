@@ -2,6 +2,7 @@ from datetime import date, timedelta
 from uuid import UUID
 
 from sqlalchemy import and_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -12,8 +13,11 @@ from src.models.blocked_time import BlockedTime
 from src.models.design_tier import DesignTier
 from src.models.nail_type import NailType
 from src.schemas.appointment import AppointmentCreate, AppointmentUpdate
-from src.services.pricing import compute_price
+from src.services.monthly_set_service import get_bookable_model
+from src.services.pricing import compute_monthly_set_price, compute_price
 from src.services.slots_service import BERLIN_TZ, is_past_same_day_cutoff
+
+MONTHLY_SET_TAKEN = "This design was just booked by someone else!"
 
 # The removal-only service. Booking it is the removal, so the removal add-on
 # must not be charged on top. Matched by name like Japanese Manicure.
@@ -37,35 +41,17 @@ async def create_appointment(
             f"{settings.SAME_DAY_CUTOFF_HOUR}:00. Please pick another day!"
         )
 
-    result = await db.execute(select(NailType).where(NailType.id == data.nail_type_id))
-    nail_type = result.scalar_one_or_none()
-
-    if not nail_type or not nail_type.is_active:
-        raise NotFoundError("Nail type not available!")
-
-    if nail_type.name == REMOVAL_ONLY_NAME:
-        if data.design_tier_id:
-            raise ValidationError("Nail removal doesn't use a design tier!")
-        # The service already is the removal. Never add the fee twice.
-        data = data.model_copy(update={"needs_removal": False})
-
-    # Design tier is optional (e.g. Japanese Manicure doesn't use one)
-    design_tier = None
-    if data.design_tier_id:
-        result = await db.execute(
-            select(DesignTier).where(DesignTier.id == data.design_tier_id)
-        )
-        design_tier = result.scalar_one_or_none()
-
-        if not design_tier or not design_tier.is_active:
-            raise NotFoundError("Design tier not available!")
-
     # Duration and price are always derived server-side from the current DB rows
     # so the client can never dictate what they pay.
-    total_minutes = nail_type.duration_minutes + (
-        design_tier.duration_minutes if design_tier else 0
-    )
-    quoted_price = compute_price(nail_type, design_tier, data.needs_removal)
+    if data.monthly_set_model_id is not None:
+        # Locks the model row until commit so concurrent bookings of the same
+        # design are serialized. Raises if it's hidden or already held.
+        model = await get_bookable_model(db, data.monthly_set_model_id, lock=True)
+        total_minutes = model.duration_minutes
+        needs_removal = data.needs_removal
+        quoted_price = compute_monthly_set_price(model, needs_removal)
+    else:
+        total_minutes, quoted_price, needs_removal = await _regular_service(data, db)
 
     end_time = data.start_time + timedelta(minutes=total_minutes)
 
@@ -115,6 +101,7 @@ async def create_appointment(
     appointment = Appointment(
         nail_type_id=data.nail_type_id,
         design_tier_id=data.design_tier_id,
+        monthly_set_model_id=data.monthly_set_model_id,
         client_email=data.client_email,
         start_time=data.start_time,
         end_time=end_time,
@@ -123,13 +110,59 @@ async def create_appointment(
         ai_confidence=data.ai_confidence,
         ai_reasoning=data.ai_reasoning,
         image_key=data.image_key,
-        needs_removal=data.needs_removal,
+        needs_removal=needs_removal,
         source=source,
     )
     db.add(appointment)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # The partial unique index caught a double booking the lock missed.
+        await db.rollback()
+        if data.monthly_set_model_id is not None:
+            raise ConflictError(MONTHLY_SET_TAKEN) from None
+        raise
     await db.refresh(appointment)
     return appointment
+
+
+async def _regular_service(
+    data: AppointmentCreate, db: AsyncSession
+) -> tuple[int, float, bool]:
+    """Duration, price and effective removal flag for a nail type plus an
+    optional design tier."""
+    result = await db.execute(select(NailType).where(NailType.id == data.nail_type_id))
+    nail_type = result.scalar_one_or_none()
+
+    if not nail_type or not nail_type.is_active:
+        raise NotFoundError("Nail type not available!")
+
+    needs_removal = data.needs_removal
+    if nail_type.name == REMOVAL_ONLY_NAME:
+        if data.design_tier_id:
+            raise ValidationError("Nail removal doesn't use a design tier!")
+        # The service already is the removal. Never add the fee twice.
+        needs_removal = False
+
+    # Design tier is optional (e.g. Japanese Manicure doesn't use one)
+    design_tier = None
+    if data.design_tier_id:
+        result = await db.execute(
+            select(DesignTier).where(DesignTier.id == data.design_tier_id)
+        )
+        design_tier = result.scalar_one_or_none()
+
+        if not design_tier or not design_tier.is_active:
+            raise NotFoundError("Design tier not available!")
+
+    total_minutes = nail_type.duration_minutes + (
+        design_tier.duration_minutes if design_tier else 0
+    )
+    return (
+        total_minutes,
+        compute_price(nail_type, design_tier, needs_removal),
+        needs_removal,
+    )
 
 
 async def update_appointment(
@@ -272,6 +305,13 @@ async def update_appointment_status(
         raise NotFoundError("Appointment not found!")
 
     appointment.status = new_status
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Reviving a canceled monthly set booking while another client holds it.
+        await db.rollback()
+        raise ConflictError(
+            "This monthly set is already held by another booking!"
+        ) from None
     await db.refresh(appointment)
     return appointment

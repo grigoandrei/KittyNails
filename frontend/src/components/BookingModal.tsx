@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useForm } from "react-hook-form";
 import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, getDay, getDaysInMonth, isSameDay } from "date-fns";
-import { X, ChevronLeft, ChevronRight, Loader2, AlertCircle, Check, Clock, Upload, Sparkles, Info, Leaf, Eraser } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Loader2, AlertCircle, Check, Clock, Upload, Sparkles, Info, Leaf, Eraser, HeartCrack } from "lucide-react";
 import { toast } from "sonner";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -12,8 +12,13 @@ import {
   fetchSlots,
   fetchNailTypes,
   createCheckoutSession,
+  fetchMonthlySets,
+  formatDuration,
+  ApiError,
   type NailAnalysisResponse,
   type NailType,
+  type ServiceRef,
+  type MonthlySetDesign,
 } from "../api";
 
 function cn(...inputs: (string | undefined | null | false)[]) {
@@ -31,7 +36,7 @@ const DEPOSIT = 15;
 const JAPANESE_MANICURE_NAME = "Japanese Manicure";
 const REMOVAL_ONLY_NAME = "Nail Removal";
 
-type Step = "photo" | "estimate" | "datetime" | "confirm";
+type Step = "photo" | "estimate" | "design" | "datetime" | "confirm";
 
 interface ClientInfo {
   email: string;
@@ -41,9 +46,14 @@ interface ClientInfo {
 interface BookingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Open straight on this monthly set, e.g. from the landing page section. */
+  initialMonthlySet?: MonthlySetDesign | null;
 }
 
-export function BookingModal({ open, onOpenChange }: BookingModalProps) {
+/** How many monthly sets the strip shows before linking to the section. */
+const STRIP_LIMIT = 3;
+
+export function BookingModal({ open, onOpenChange, initialMonthlySet = null }: BookingModalProps) {
   const [step, setStep] = useState<Step>("photo");
 
   // Photo upload
@@ -58,6 +68,12 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
   // Fixed-price services skip AI: Japanese Manicure and Nail Removal
   const [fixedService, setFixedService] = useState<NailType | null>(null);
   const [nailTypes, setNailTypes] = useState<NailType[]>([]);
+
+  // monthly set flow: a one-of-one design, skips photo and AI
+  const [monthlySet, setMonthlySet] = useState<MonthlySetDesign | null>(null);
+  const [monthlySetDesigns, setMonthlySetDesigns] = useState<MonthlySetDesign[]>([]);
+  // Another client took the design while this one was booking
+  const [monthlySetTaken, setMonthlySetTaken] = useState(false);
 
   // Date/time state
   const [calendarMonth, setCalendarMonth] = useState(startOfMonth(new Date()));
@@ -90,7 +106,9 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
   // Reset when modal opens/closes
   useEffect(() => {
     if (open) {
-      setStep("photo");
+      setStep(initialMonthlySet ? "design" : "photo");
+      setMonthlySet(initialMonthlySet);
+      setMonthlySetTaken(false);
       setSelectedFile(null);
       setPreviewUrl(null);
       setAnalyzing(false);
@@ -106,7 +124,69 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
       setConfirmed(false);
       resetForm();
     }
-  }, [open, resetForm]);
+  }, [open, resetForm, initialMonthlySet]);
+
+  const loadMonthlySet = useCallback(() => {
+    fetchMonthlySets()
+      .then(setMonthlySetDesigns)
+      .catch(() => setMonthlySetDesigns([]));
+  }, []);
+
+  useEffect(() => {
+    if (open) loadMonthlySet();
+  }, [open, loadMonthlySet]);
+
+  // What the slot and checkout calls book. Null until a service is picked.
+  const service = useMemo<ServiceRef | null>(() => {
+    if (monthlySet) return { kind: "monthlySet", monthlySetModelId: monthlySet.id };
+    const nailTypeId = analysis?.nail_type_id ?? fixedService?.id;
+    if (!nailTypeId) return null;
+    return {
+      kind: "regular",
+      nailTypeId,
+      designTierId: analysis?.design_tier_id ?? null,
+    };
+  }, [monthlySet, analysis, fixedService]);
+
+  /** True when the API says the chosen monthly set is gone. */
+  const isDesignGone = useCallback(
+    (err: unknown) =>
+      monthlySet !== null &&
+      err instanceof ApiError &&
+      (err.status === 404 || err.status === 409),
+    [monthlySet]
+  );
+
+  function resetSchedule() {
+    setSelectedDate(null);
+    setSelectedTime(null);
+    setTimeSlots([]);
+    setAvailableDates([]);
+  }
+
+  function handleSelectMonthlySet(design: MonthlySetDesign) {
+    setMonthlySet(design);
+    setAnalysis(null);
+    setFixedService(null);
+    resetSchedule();
+    setStep("design");
+  }
+
+  function handleBackToDesigns() {
+    setMonthlySetTaken(false);
+    setMonthlySet(null);
+    resetSchedule();
+    setStep("photo");
+    loadMonthlySet();
+  }
+
+  function handleSeeAllDesigns() {
+    onOpenChange(false);
+    // Let the dialog close before scrolling the page.
+    window.setTimeout(() => {
+      document.getElementById("monthly-sets")?.scrollIntoView({ behavior: "smooth" });
+    }, 150);
+  }
 
   // Clean up preview URL
   useEffect(() => {
@@ -141,6 +221,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
     setAnalyzeError(null);
     try {
       const result = await analyzeNails(selectedFile);
+      setMonthlySet(null);
       setAnalysis(result);
       setStep("estimate");
     } catch (err) {
@@ -169,6 +250,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
         return;
       }
       setFixedService(service);
+      setMonthlySet(null);
       setAnalysis(null);
       // Removal-only is the removal itself, so the add-on never applies.
       setNeedsRemoval(false);
@@ -180,56 +262,45 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
 
   // Load available dates when entering datetime step or month changes
   const loadAvailableDates = useCallback(async () => {
-    const nailTypeId = analysis?.nail_type_id ?? fixedService?.id;
-    if (!nailTypeId) return;
+    if (!service) return;
     setDatesLoading(true);
     setDatesError(null);
     try {
       const year = calendarMonth.getFullYear();
       const month = calendarMonth.getMonth() + 1;
-      const designTierId = analysis?.design_tier_id ?? null;
-      const dates = await fetchAvailableDates(
-        nailTypeId,
-        designTierId,
-        year,
-        month
-      );
+      const dates = await fetchAvailableDates(service, year, month);
       setAvailableDates(dates);
-    } catch {
-      setDatesError("Failed to load available dates.");
+    } catch (err) {
+      if (isDesignGone(err)) setMonthlySetTaken(true);
+      else setDatesError("Failed to load available dates.");
     } finally {
       setDatesLoading(false);
     }
-  }, [analysis, fixedService, calendarMonth]);
+  }, [service, calendarMonth, isDesignGone]);
 
   useEffect(() => {
-    if (step === "datetime" && (analysis || fixedService)) {
+    if (step === "datetime" && service) {
       loadAvailableDates();
     }
-  }, [step, analysis, fixedService, calendarMonth, loadAvailableDates]);
+  }, [step, service, calendarMonth, loadAvailableDates]);
 
   // Load time slots when date is selected
   const loadTimeSlots = useCallback(async () => {
-    const nailTypeId = analysis?.nail_type_id ?? fixedService?.id;
-    if (!nailTypeId || !selectedDate) return;
+    if (!service || !selectedDate) return;
     setSlotsLoading(true);
     setSlotsError(null);
     setSelectedTime(null);
     try {
       const dateStr = format(selectedDate, "yyyy-MM-dd");
-      const designTierId = analysis?.design_tier_id ?? null;
-      const slots = await fetchSlots(
-        nailTypeId,
-        designTierId,
-        dateStr
-      );
+      const slots = await fetchSlots(service, dateStr);
       setTimeSlots(slots);
-    } catch {
-      setSlotsError("Failed to load time slots.");
+    } catch (err) {
+      if (isDesignGone(err)) setMonthlySetTaken(true);
+      else setSlotsError("Failed to load time slots.");
     } finally {
       setSlotsLoading(false);
     }
-  }, [analysis, fixedService, selectedDate]);
+  }, [service, selectedDate, isDesignGone]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -239,9 +310,10 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
 
   // Navigation
   function goBack() {
-    if (step === "estimate") setStep("photo");
+    if (step === "estimate" || step === "design") setStep("photo");
     else if (step === "datetime") {
-      if (fixedService) setStep("photo");
+      if (monthlySet) setStep("design");
+      else if (fixedService) setStep("photo");
       else setStep("estimate");
     }
     else if (step === "confirm") setStep("datetime");
@@ -274,15 +346,12 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
   }
 
   async function confirmBooking() {
-    if (!selectedTime || !selectedDate) return;
-    const nailTypeId = analysis?.nail_type_id ?? fixedService?.id;
-    if (!nailTypeId) return;
+    if (!selectedTime || !selectedDate || !service) return;
     setSubmitting(true);
     try {
       // Re-check slot availability right before booking
-      const designTierId = analysis?.design_tier_id ?? null;
       const dateStr = format(selectedDate, "yyyy-MM-dd");
-      const freshSlots = await fetchSlots(nailTypeId, designTierId, dateStr);
+      const freshSlots = await fetchSlots(service, dateStr);
       if (!freshSlots.includes(selectedTime)) {
         toast.error("This time slot is no longer available. Please choose another.");
         setSelectedTime(null);
@@ -295,19 +364,32 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
       // Create a Stripe Checkout Session and redirect the client to pay
       // the €15 deposit. The appointment is created in PENDING_PAYMENT
       // status; the Stripe webhook confirms it once payment succeeds.
-      const { checkout_url } = await createCheckoutSession({
-        nail_type_id: nailTypeId,
-        design_tier_id: designTierId,
-        client_email: info.email,
-        start_time: selectedTime,
-        ai_confidence: analysis?.confidence,
-        ai_reasoning: analysis?.reasoning,
-        image_key: analysis?.image_key,
-        needs_removal: needsRemoval,
-      });
+      const { checkout_url } = await createCheckoutSession(
+        service.kind === "monthlySet"
+          ? {
+              monthly_set_model_id: service.monthlySetModelId,
+              client_email: info.email,
+              start_time: selectedTime,
+              needs_removal: needsRemoval,
+            }
+          : {
+              nail_type_id: service.nailTypeId,
+              design_tier_id: service.designTierId,
+              client_email: info.email,
+              start_time: selectedTime,
+              ai_confidence: analysis?.confidence,
+              ai_reasoning: analysis?.reasoning,
+              image_key: analysis?.image_key,
+              needs_removal: needsRemoval,
+            }
+      );
       // Redirect to Stripe's hosted checkout page
       window.location.href = checkout_url;
     } catch (err) {
+      if (isDesignGone(err)) {
+        setMonthlySetTaken(true);
+        return;
+      }
       toast.error(
         err instanceof Error ? err.message : "Failed to start checkout."
       );
@@ -321,9 +403,14 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
   }
 
   // Step indicator
-  const steps: Step[] = ["photo", "estimate", "datetime", "confirm"];
-  const stepLabels = ["Upload Photo", "Estimate", "Date & Time", "Confirm"];
-  const currentStepIndex = steps.indexOf(step);
+  const steps: Step[] = monthlySet
+    ? ["design", "datetime", "confirm"]
+    : ["photo", "estimate", "datetime", "confirm"];
+  const stepLabels = monthlySet
+    ? ["Your Design", "Date & Time", "Confirm"]
+    : ["Upload Photo", "Estimate", "Date & Time", "Confirm"];
+  // The photo step is where the monthly set path starts, so count it as step one.
+  const currentStepIndex = Math.max(steps.indexOf(step), 0);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -345,7 +432,7 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
           </Dialog.Description>
 
           {/* Step indicator */}
-          {!confirmed && (
+          {!confirmed && !monthlySetTaken && (
             <div className="flex items-center gap-1 mb-6">
               {steps.map((_, i) => (
                 <div
@@ -359,12 +446,18 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
             </div>
           )}
 
+          {/* monthly set was taken by someone else */}
+          {monthlySetTaken && <DesignTakenView onBack={handleBackToDesigns} />}
+
           {/* Confirmed State */}
           {confirmed && <ConfirmedView analysis={analysis} fixedService={fixedService} selectedTime={selectedTime} email={getValues().email} onClose={() => onOpenChange(false)} />}
 
           {/* Step 1: Photo Upload */}
-          {!confirmed && step === "photo" && (
+          {!confirmed && !monthlySetTaken && step === "photo" && (
             <PhotoStep
+              monthlySetDesigns={monthlySetDesigns}
+              onSelectMonthlySet={handleSelectMonthlySet}
+              onSeeAllDesigns={handleSeeAllDesigns}
               previewUrl={previewUrl}
               selectedFile={selectedFile}
               analyzing={analyzing}
@@ -381,8 +474,13 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
             <EstimateStep analysis={analysis} onContinue={() => setStep("datetime")} onBack={goBack} />
           )}
 
+          {/* monthly set: chosen design */}
+          {!confirmed && !monthlySetTaken && step === "design" && monthlySet && (
+            <DesignStep design={monthlySet} onContinue={() => setStep("datetime")} onBack={goBack} />
+          )}
+
           {/* Step 3: Date & Time */}
-          {!confirmed && step === "datetime" && (
+          {!confirmed && !monthlySetTaken && step === "datetime" && (
             <DateTimeStep
               calendarMonth={calendarMonth}
               canGoPrevMonth={canGoPrevMonth}
@@ -405,10 +503,11 @@ export function BookingModal({ open, onOpenChange }: BookingModalProps) {
           )}
 
           {/* Step 4: Confirm */}
-          {!confirmed && step === "confirm" && (
+          {!confirmed && !monthlySetTaken && step === "confirm" && (
             <ConfirmStep
               analysis={analysis}
               fixedService={fixedService}
+              monthlySet={monthlySet}
               selectedTime={selectedTime}
               submitting={submitting}
               needsRemoval={needsRemoval}
@@ -531,7 +630,159 @@ function ConfirmedView({ analysis, fixedService, selectedTime, email, onClose }:
   );
 }
 
-function PhotoStep({ previewUrl, selectedFile, analyzing, analyzeError, onFileSelect, onAnalyze, nailTypes, onFixedService }: {
+function MonthlySetStrip({ designs, onSelect, onSeeAll }: {
+  designs: MonthlySetDesign[];
+  onSelect: (design: MonthlySetDesign) => void;
+  onSeeAll: () => void;
+}) {
+  if (designs.length === 0) return null;
+  const shown = designs.slice(0, STRIP_LIMIT);
+
+  return (
+    <div className="mb-6 rounded-2xl border border-primary-light bg-primary-light/30 p-3.5 sm:p-4 text-left">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-primary-dark">
+            <Sparkles className="w-3.5 h-3.5" />
+            Monthly sets
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Sets that show off my creativity, my style and some discounts for you 🤭
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-card px-2.5 py-1 text-[11px] font-medium text-primary-dark">
+          {designs.length} available
+        </span>
+      </div>
+
+      <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible">
+        {shown.map((design) => (
+          <button
+            key={design.id}
+            type="button"
+            onClick={() => onSelect(design)}
+            className="group w-[148px] shrink-0 snap-start overflow-hidden rounded-xl border border-border bg-card text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md sm:w-auto cursor-pointer"
+          >
+            {design.image_url ? (
+              <img
+                src={design.image_url}
+                alt={design.title}
+                className="aspect-[4/3] w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+              />
+            ) : (
+              <div className="aspect-[4/3] w-full bg-primary-light/40" />
+            )}
+            <span className="block px-3 pt-2 text-xs font-medium truncate">{design.title}</span>
+            <span className="flex items-center justify-between gap-2 px-3 pb-2.5 pt-0.5">
+              <span className="font-[family-name:var(--font-serif)] text-base text-primary-dark">
+                €{design.price}
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Clock className="w-2.5 h-2.5" />
+                {formatDuration(design.duration_minutes)}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {designs.length > STRIP_LIMIT && (
+        <button
+          type="button"
+          onClick={onSeeAll}
+          className="mt-3 text-xs font-medium text-primary-dark hover:underline underline-offset-4 cursor-pointer"
+        >
+          See all {designs.length} designs
+        </button>
+      )}
+    </div>
+  );
+}
+
+function DesignStep({ design, onContinue, onBack }: {
+  design: MonthlySetDesign;
+  onContinue: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div>
+      <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-primary-dark">
+        Your chosen design
+      </p>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card sm:flex">
+        {design.image_url && (
+          <img
+            src={design.image_url}
+            alt={design.title}
+            className="aspect-[4/3] w-full object-cover sm:aspect-square sm:w-48"
+          />
+        )}
+        <div className="flex flex-1 flex-col justify-center p-5">
+          <h3 className="font-[family-name:var(--font-serif)] text-xl font-semibold">
+            {design.title}
+          </h3>
+          <div className="mt-2 flex items-center justify-between">
+            <span className="font-[family-name:var(--font-serif)] text-2xl text-primary-dark">
+              €{design.price}
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Clock className="w-3.5 h-3.5" />
+              {formatDuration(design.duration_minutes)}
+            </span>
+          </div>
+          {design.description && (
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{design.description}</p>
+          )}
+          <p className="mt-4 rounded-xl bg-primary-light/40 px-3 py-2 text-xs leading-5 text-primary-dark">
+            This design is unique and disappears once booked.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex justify-between mt-6 pt-4 border-t border-border">
+        <button
+          onClick={onBack}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          Back
+        </button>
+        <button
+          onClick={onContinue}
+          className="bg-primary text-primary-foreground px-5 py-2 rounded-full text-sm font-medium hover:bg-primary-dark transition-colors cursor-pointer"
+        >
+          Choose Date & Time
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DesignTakenView({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="text-center py-8">
+      <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+        <HeartCrack className="w-7 h-7 text-red-500" />
+      </div>
+      <h3 className="font-[family-name:var(--font-serif)] text-2xl font-semibold mb-2">
+        This one just got away
+      </h3>
+      <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+        Another client booked this design a moment ago. You have not been charged.
+      </p>
+      <button
+        onClick={onBack}
+        className="mt-6 bg-primary text-primary-foreground px-6 py-2.5 rounded-full text-sm font-medium hover:bg-primary-dark transition-colors cursor-pointer"
+      >
+        See other designs
+      </button>
+    </div>
+  );
+}
+
+function PhotoStep({ monthlySetDesigns, onSelectMonthlySet, onSeeAllDesigns, previewUrl, selectedFile, analyzing, analyzeError, onFileSelect, onAnalyze, nailTypes, onFixedService }: {
+  monthlySetDesigns: MonthlySetDesign[];
+  onSelectMonthlySet: (design: MonthlySetDesign) => void;
+  onSeeAllDesigns: () => void;
   previewUrl: string | null;
   selectedFile: File | null;
   analyzing: boolean;
@@ -546,7 +797,13 @@ function PhotoStep({ previewUrl, selectedFile, analyzing, analyzeError, onFileSe
 
   return (
     <div>
+      <MonthlySetStrip designs={monthlySetDesigns} onSelect={onSelectMonthlySet} onSeeAll={onSeeAllDesigns} />
       <div className="text-center">
+        {monthlySetDesigns.length > 0 && (
+          <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wide font-medium">
+            Or get an estimate for your own idea
+          </p>
+        )}
         <div className="border-2 border-dashed border-border rounded-xl p-8 hover:border-primary/50 transition-colors">
           {previewUrl ? (
             <div className="space-y-4">
@@ -864,9 +1121,10 @@ function DateTimeStep({ calendarMonth, canGoPrevMonth, datesLoading, datesError,
   );
 }
 
-function ConfirmStep({ analysis, fixedService, selectedTime, submitting, needsRemoval, onNeedsRemovalChange, register, errors, onSubmit, onBack }: {
+function ConfirmStep({ analysis, fixedService, monthlySet, selectedTime, submitting, needsRemoval, onNeedsRemovalChange, register, errors, onSubmit, onBack }: {
   analysis: NailAnalysisResponse | null;
   fixedService: NailType | null;
+  monthlySet: MonthlySetDesign | null;
   selectedTime: string | null;
   submitting: boolean;
   needsRemoval: boolean;
@@ -876,15 +1134,21 @@ function ConfirmStep({ analysis, fixedService, selectedTime, submitting, needsRe
   onSubmit: (e: React.FormEvent) => void;
   onBack: () => void;
 }) {
-  const serviceName = fixedService
-    ? fixedService.name
-    : `${analysis?.nail_type} + ${analysis?.design_tier}`;
-  const duration = fixedService
-    ? fixedService.duration_minutes
-    : analysis?.estimated_duration_minutes ?? 0;
-  const price = fixedService
-    ? fixedService.price
-    : analysis?.estimated_price ?? 0;
+  const serviceName = monthlySet
+    ? monthlySet.title
+    : fixedService
+      ? fixedService.name
+      : `${analysis?.nail_type} + ${analysis?.design_tier}`;
+  const duration = monthlySet
+    ? monthlySet.duration_minutes
+    : fixedService
+      ? fixedService.duration_minutes
+      : analysis?.estimated_duration_minutes ?? 0;
+  const price = monthlySet
+    ? monthlySet.price
+    : fixedService
+      ? fixedService.price
+      : analysis?.estimated_price ?? 0;
   const isRemovalOnly = fixedService?.name === REMOVAL_ONLY_NAME;
   const total = price + (needsRemoval ? REMOVAL_PRICE : 0);
   const dueAtStudio = Math.max(total - DEPOSIT, 0);
@@ -893,6 +1157,12 @@ function ConfirmStep({ analysis, fixedService, selectedTime, submitting, needsRe
     <form onSubmit={onSubmit}>
       {/* Booking summary */}
       <div className="bg-secondary rounded-xl p-4 space-y-2 text-sm mb-6">
+        {monthlySet?.image_url && (
+          <div className="flex items-center gap-3 pb-2">
+            <img src={monthlySet.image_url} alt="" className="h-14 w-14 rounded-xl object-cover" />
+            <span className="text-xs font-medium uppercase tracking-wide text-primary-dark">Monthly set</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span className="text-muted-foreground">Service</span>
           <span className="font-medium">{serviceName}</span>

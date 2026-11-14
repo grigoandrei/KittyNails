@@ -8,6 +8,7 @@ import {
   Clock,
   CalendarOff,
   CalendarCheck,
+  ImagePlus,
   LogOut,
   Menu,
   X,
@@ -20,6 +21,7 @@ const navItems = [
   { to: "/admin/availability", label: "Availability", icon: Clock },
   { to: "/admin/blocked-times", label: "Blocked Times", icon: CalendarOff },
   { to: "/admin/appointments", label: "Appointments", icon: CalendarCheck },
+  { to: "/admin/monthly-sets", label: "Monthly Sets", icon: ImagePlus },
 ];
 
 export function AdminLayout() {

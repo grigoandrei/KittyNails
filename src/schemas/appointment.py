@@ -1,12 +1,22 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 class AppointmentCreate(BaseModel):
-    nail_type_id: UUID
+    # Exactly one of nail_type_id (regular service) or monthly_set_model_id
+    # (one-of-one artist design) must be set.
+    nail_type_id: UUID | None = None
     design_tier_id: UUID | None = None
+    monthly_set_model_id: UUID | None = None
     client_email: EmailStr
     start_time: datetime
     # Carried through from the AI analysis step so we can persist it on the
@@ -27,6 +37,14 @@ class AppointmentCreate(BaseModel):
         if start_time <= now:
             raise ValueError("Date cannot be in the past!")
         return start_time
+
+    @model_validator(mode="after")
+    def one_service(self) -> "AppointmentCreate":
+        if (self.nail_type_id is None) == (self.monthly_set_model_id is None):
+            raise ValueError("Choose either a nail type or a monthly set.")
+        if self.monthly_set_model_id is not None and self.design_tier_id is not None:
+            raise ValueError("Monthly sets don't use a design tier.")
+        return self
 
 
 class AppointmentUpdate(BaseModel):
@@ -54,8 +72,9 @@ class AppointmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    nail_type_id: UUID
+    nail_type_id: UUID | None
     design_tier_id: UUID | None
+    monthly_set_model_id: UUID | None = None
     client_email: str
     start_time: datetime
     end_time: datetime

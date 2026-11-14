@@ -1,7 +1,10 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Check, X } from "lucide-react";
 
 export function BookingSuccess() {
+  const [params] = useSearchParams();
+  const isMonthlySet = params.get("type") === "monthly-sets";
+
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center bg-card rounded-2xl shadow-xl border border-border p-8">
@@ -9,11 +12,13 @@ export function BookingSuccess() {
           <Check className="w-8 h-8 text-green-600" />
         </div>
         <h1 className="font-[family-name:var(--font-serif)] text-2xl font-semibold mb-2">
-          Payment Successful!
+          {isMonthlySet ? "It's yours!" : "Payment Successful!"}
         </h1>
         <p className="text-muted-foreground text-sm mb-6">
-          Your deposit has been received and your appointment is confirmed. A
-          confirmation email is on its way with all the details.
+          {isMonthlySet
+            ? "Your deposit has been received and this one-of-a-kind design is now saved just for you. "
+            : "Your deposit has been received and your appointment is confirmed. "}
+          A confirmation email is on its way with all the details.
         </p>
         <div className="bg-secondary rounded-xl p-4 text-sm text-muted-foreground mb-6">
           Need to reach the nail artist? Send a DM on{" "}

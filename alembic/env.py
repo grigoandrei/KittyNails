@@ -10,6 +10,7 @@ from src.database import Base
 from src.models import (  # noqa: F401 - registers models
     Appointment,
     DesignTier,
+    MonthlySetModel,
     NailType,
 )
 

@@ -98,8 +98,7 @@ async def _send_confirmation_for_appointment(
     from sqlalchemy import select
 
     from src.models.appointment import Appointment
-    from src.models.design_tier import DesignTier
-    from src.models.nail_type import NailType
+    from src.services.service_names import resolve_service_names
 
     try:
         result = await db.execute(
@@ -109,19 +108,9 @@ async def _send_confirmation_for_appointment(
         if not appointment:
             return
 
-        nt_result = await db.execute(
-            select(NailType).where(NailType.id == appointment.nail_type_id)
+        nail_type_name, design_tier_name = await resolve_service_names(
+            appointment, db
         )
-        nail_type = nt_result.scalar_one_or_none()
-        nail_type_name = nail_type.name if nail_type else "Nail Service"
-
-        design_tier_name = None
-        if appointment.design_tier_id:
-            dt_result = await db.execute(
-                select(DesignTier).where(DesignTier.id == appointment.design_tier_id)
-            )
-            design_tier = dt_result.scalar_one_or_none()
-            design_tier_name = design_tier.name if design_tier else None
 
         await send_confirmation_email(
             client_email=appointment.client_email,

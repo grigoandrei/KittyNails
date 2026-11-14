@@ -1,5 +1,6 @@
 from src.config import settings
 from src.models.design_tier import DesignTier
+from src.models.monthly_set_model import MonthlySetModel
 from src.models.nail_type import NailType
 
 
@@ -14,4 +15,12 @@ def compute_price(
     if needs_removal:
         price += float(settings.NAIL_REMOVAL_PRICE)
 
+    return price
+
+
+def compute_monthly_set_price(model: MonthlySetModel, needs_removal: bool) -> float:
+    """A monthly set has its own fixed price, plus the optional removal fee."""
+    price = float(model.price)
+    if needs_removal:
+        price += float(settings.NAIL_REMOVAL_PRICE)
     return price

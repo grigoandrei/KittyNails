@@ -16,8 +16,7 @@ from sqlalchemy.pool import NullPool
 
 from src.config import settings
 from src.models.appointment import Appointment, Status
-from src.models.design_tier import DesignTier
-from src.models.nail_type import NailType
+from src.services.service_names import resolve_service_names
 from src.services.telegram_service import format_appointment_line, send_message
 
 logger = logging.getLogger(__name__)
@@ -85,22 +84,13 @@ async def _send_digest():
 
             resolved = []
             for appt in appointments:
-                nt = await db.execute(
-                    select(NailType).where(NailType.id == appt.nail_type_id)
+                nail_type_name, design_tier_name = await resolve_service_names(
+                    appt, db
                 )
-                nail_type = nt.scalar_one_or_none()
-                design_tier_name = None
-                if appt.design_tier_id:
-                    dt = await db.execute(
-                        select(DesignTier).where(DesignTier.id == appt.design_tier_id)
-                    )
-                    design_tier = dt.scalar_one_or_none()
-                    if design_tier:
-                        design_tier_name = design_tier.name
                 resolved.append(
                     {
                         "start_time": appt.start_time,
-                        "nail_type_name": nail_type.name if nail_type else "Nail Service",
+                        "nail_type_name": nail_type_name,
                         "design_tier_name": design_tier_name,
                         "needs_removal": appt.needs_removal,
                         "quoted_price": float(appt.quoted_price),

@@ -1,17 +1,15 @@
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.limiter import limiter
-from src.models.design_tier import DesignTier
-from src.models.nail_type import NailType
 from src.schemas.appointment import AppointmentCreate, AppointmentResponse
 from src.services.appointment_service import create_appointment
 from src.services.booking_notifier import new_booking_message
 from src.services.email_service import send_confirmation_email
+from src.services.service_names import resolve_service_names
 from src.services.telegram_service import send_message
 
 logger = logging.getLogger(__name__)
@@ -31,19 +29,9 @@ async def create(
 
     # Look up names for the confirmation email (best-effort, non-blocking)
     try:
-        nail_type_result = await db.execute(
-            select(NailType).where(NailType.id == appointment.nail_type_id)
+        nail_type_name, design_tier_name = await resolve_service_names(
+            appointment, db
         )
-        nail_type = nail_type_result.scalar_one_or_none()
-        nail_type_name = nail_type.name if nail_type else "Nail Service"
-
-        design_tier_name = None
-        if appointment.design_tier_id:
-            dt_result = await db.execute(
-                select(DesignTier).where(DesignTier.id == appointment.design_tier_id)
-            )
-            design_tier = dt_result.scalar_one_or_none()
-            design_tier_name = design_tier.name if design_tier else None
 
         background_tasks.add_task(
             send_confirmation_email,

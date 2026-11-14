@@ -44,8 +44,10 @@ async function adminFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   const token = getToken();
+  // FormData bodies need the browser to set the multipart boundary itself.
+  const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string>),
   };
   if (token) {
@@ -261,7 +263,8 @@ export async function deleteBlockedTime(id: string): Promise<void> {
 // Appointments
 export interface AdminAppointment {
   id: string;
-  nail_type_id: string;
+  nail_type_id: string | null;
+  monthly_set_model_id?: string | null;
   design_tier_id: string;
   client_email: string;
   start_time: string;
@@ -353,4 +356,82 @@ export interface WeeklyIncome {
 export async function fetchWeeklyIncome(start: string): Promise<WeeklyIncome[]> {
   const res = await adminFetch(`/api/admin/stats/weekly-income?start=${start}`);
   return res.json();
+}
+
+// monthly set
+export type MonthlySetState = "available" | "reserved" | "booked" | "hidden";
+
+export interface MonthlySetDesign {
+  id: string;
+  title: string;
+  price: number;
+  duration_minutes: number;
+  description: string | null;
+  image_url: string | null;
+  is_active: boolean;
+  sort_order: number;
+  state: MonthlySetState;
+  has_bookings: boolean;
+  appointment_id: string | null;
+  client_email: string | null;
+  appointment_start: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlySetFields {
+  title: string;
+  price: number;
+  duration_minutes: number;
+  description: string;
+}
+
+export async function fetchMonthlySetDesigns(): Promise<MonthlySetDesign[]> {
+  const res = await adminFetch("/api/admin/monthly-sets");
+  return res.json();
+}
+
+export async function createMonthlySetDesign(
+  data: MonthlySetFields,
+  image: File
+): Promise<MonthlySetDesign> {
+  const form = new FormData();
+  form.append("title", data.title);
+  form.append("price", String(data.price));
+  form.append("duration_minutes", String(data.duration_minutes));
+  if (data.description.trim()) form.append("description", data.description);
+  form.append("image", image);
+  const res = await adminFetch("/api/admin/monthly-sets", {
+    method: "POST",
+    body: form,
+  });
+  return res.json();
+}
+
+export async function updateMonthlySetDesign(
+  id: string,
+  data: Partial<MonthlySetFields & { is_active: boolean; sort_order: number }>
+): Promise<MonthlySetDesign> {
+  const res = await adminFetch(`/api/admin/monthly-sets/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function replaceMonthlySetImage(
+  id: string,
+  image: File
+): Promise<MonthlySetDesign> {
+  const form = new FormData();
+  form.append("image", image);
+  const res = await adminFetch(`/api/admin/monthly-sets/${id}/image`, {
+    method: "PUT",
+    body: form,
+  });
+  return res.json();
+}
+
+export async function deleteMonthlySetDesign(id: string): Promise<void> {
+  await adminFetch(`/api/admin/monthly-sets/${id}`, { method: "DELETE" });
 }

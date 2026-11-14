@@ -3,7 +3,16 @@ from datetime import UTC, datetime
 from enum import Enum
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    text,
+)
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,9 +29,37 @@ class Status(Enum):
 
 class Appointment(Base):
     __tablename__ = "appointments"
+    __table_args__ = (
+        # An appointment is either a regular service (nail type) or a monthly set
+        # model, never both. monthly set bookings never carry a design tier.
+        CheckConstraint(
+            "(nail_type_id IS NOT NULL) <> (monthly_set_model_id IS NOT NULL)",
+            name="ck_appointments_one_service",
+        ),
+        CheckConstraint(
+            "monthly_set_model_id IS NULL OR design_tier_id IS NULL",
+            name="ck_appointments_monthly_set_no_tier",
+        ),
+        # A monthly set model can be held by at most one live appointment.
+        # CANCELED and NO_SHOW free it again.
+        Index(
+            "uq_appointments_monthly_set_active",
+            "monthly_set_model_id",
+            unique=True,
+            postgresql_where=text(
+                "status IN ('PENDING_PAYMENT', 'BOOKED', 'COMPLETED')"
+            ),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid4)
-    nail_type_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nail_types.id"))
+    # Null for monthly set bookings, which reference monthly_set_model_id instead.
+    nail_type_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("nail_types.id"), nullable=True
+    )
+    monthly_set_model_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("monthly_set_models.id"), nullable=True
+    )
     design_tier_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("design_tiers.id"), nullable=True
     )

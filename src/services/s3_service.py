@@ -27,15 +27,20 @@ _EXTENSION_BY_CONTENT_TYPE = {
     "image/gif": "gif",
 }
 
-# Key prefix so nail photos are grouped within the bucket.
-_KEY_PREFIX = "nail-photos"
+# Key prefixes group objects within the bucket. Client inspiration photos and
+# the artist's monthly sets live under separate prefixes so IAM can scope
+# each one.
+NAIL_PHOTOS_PREFIX = "nail-photos"
+MONTHLY_SET_PREFIX = "monthly-sets"
 
 
 def _get_s3_client():
     return boto3.client("s3", region_name=settings.S3_REGION)
 
 
-def upload_nail_image(image_bytes: bytes, content_type: str) -> str | None:
+def upload_nail_image(
+    image_bytes: bytes, content_type: str, prefix: str = NAIL_PHOTOS_PREFIX
+) -> str | None:
     """Upload a nail photo to S3 and return its object key.
 
     Returns None if S3 is not configured or the upload fails — callers treat a
@@ -50,7 +55,7 @@ def upload_nail_image(image_bytes: bytes, content_type: str) -> str | None:
         logger.warning("Unsupported content type for S3 upload: %s", content_type)
         return None
 
-    key = f"{_KEY_PREFIX}/{uuid.uuid4()}.{extension}"
+    key = f"{prefix}/{uuid.uuid4()}.{extension}"
 
     try:
         client = _get_s3_client()
@@ -87,3 +92,17 @@ def generate_presigned_url(key: str | None) -> str | None:
     except (BotoCoreError, ClientError) as e:
         logger.error("Failed to generate presigned URL for %s: %s", key, e)
         return None
+
+
+def delete_object(key: str | None) -> bool:
+    """Best-effort delete of a stored object. Returns False on any failure so
+    callers can log and move on; an orphaned photo is harmless."""
+    if not key or not settings.S3_BUCKET:
+        return False
+
+    try:
+        _get_s3_client().delete_object(Bucket=settings.S3_BUCKET, Key=key)
+    except (BotoCoreError, ClientError) as e:
+        logger.error("Failed to delete s3://%s/%s: %s", settings.S3_BUCKET, key, e)
+        return False
+    return True

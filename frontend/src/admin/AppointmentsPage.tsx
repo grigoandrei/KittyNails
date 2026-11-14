@@ -9,9 +9,11 @@ import {
   updateAdminAppointment,
   fetchNailTypes,
   fetchDesignTiers,
+  fetchMonthlySetDesigns,
   type AdminAppointment,
   type NailType,
   type DesignTier,
+  type MonthlySetDesign,
 } from "./api";
 
 const STATUS_OPTIONS = ["", "BOOKED", "CANCELED", "NO_SHOW", "COMPLETED"];
@@ -107,6 +109,16 @@ export function AppointmentsPage() {
   const [dateFrom, setDateFrom] = useState(() => currentWeekRange().from);
   const [dateTo, setDateTo] = useState(() => currentWeekRange().to);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  // monthly sets by id, so monthly set bookings can show the design title.
+  const [monthlySetById, setMonthlySetById] = useState<Record<string, MonthlySetDesign>>({});
+
+  useEffect(() => {
+    fetchMonthlySetDesigns()
+      .then((designs) =>
+        setMonthlySetById(Object.fromEntries(designs.map((d) => [d.id, d])))
+      )
+      .catch(() => {});
+  }, []);
 
   // Add-appointment modal
   const [showAdd, setShowAdd] = useState(false);
@@ -282,6 +294,11 @@ export function AppointmentsPage() {
     }
   };
 
+  // Client photo, or the design photo for monthly set bookings.
+  const photoUrl = (apt: AdminAppointment): string | null =>
+    apt.image_url ??
+    (apt.monthly_set_model_id ? monthlySetById[apt.monthly_set_model_id]?.image_url ?? null : null);
+
   const statusBadgeClass = (status: string) => {
     switch (status) {
       case "BOOKED":
@@ -412,17 +429,24 @@ export function AppointmentsPage() {
                         Instagram
                       </span>
                     )}
+                    {apt.monthly_set_model_id && (
+                      <div className="mt-1">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary-light text-primary-dark font-medium">
+                          Monthly set: {monthlySetById[apt.monthly_set_model_id]?.title ?? "design"}
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4">
-                    {apt.image_url ? (
+                    {photoUrl(apt) ? (
                       <button
                         type="button"
-                        onClick={() => setLightboxUrl(apt.image_url ?? null)}
+                        onClick={() => setLightboxUrl(photoUrl(apt))}
                         className="cursor-pointer"
                         aria-label="View nail photo"
                       >
                         <img
-                          src={apt.image_url}
+                          src={photoUrl(apt) ?? undefined}
                           alt="Client nail inspiration"
                           className="w-12 h-12 object-cover rounded-lg border border-border hover:opacity-80 transition-opacity"
                         />

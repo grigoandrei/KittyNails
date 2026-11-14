@@ -14,9 +14,8 @@ from sqlalchemy.pool import NullPool
 
 from src.config import settings
 from src.models.appointment import Appointment, Status
-from src.models.design_tier import DesignTier
-from src.models.nail_type import NailType
 from src.services.email_service import send_reminder_email
+from src.services.service_names import resolve_service_names
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -55,22 +54,9 @@ async def _send_reminders():
             sent_count = 0
             for appt in appointments:
                 # Look up service names
-                nail_type_name = "Nail Service"
-                nt_result = await db.execute(
-                    select(NailType).where(NailType.id == appt.nail_type_id)
+                nail_type_name, design_tier_name = await resolve_service_names(
+                    appt, db
                 )
-                nail_type = nt_result.scalar_one_or_none()
-                if nail_type:
-                    nail_type_name = nail_type.name
-
-                design_tier_name = None
-                if appt.design_tier_id:
-                    dt_result = await db.execute(
-                        select(DesignTier).where(DesignTier.id == appt.design_tier_id)
-                    )
-                    design_tier = dt_result.scalar_one_or_none()
-                    if design_tier:
-                        design_tier_name = design_tier.name
 
                 success = await send_reminder_email(
                     client_email=appt.client_email,

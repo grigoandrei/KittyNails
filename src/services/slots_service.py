@@ -12,6 +12,7 @@ from src.models.availability_rules import AvailabilityRules
 from src.models.blocked_time import BlockedTime
 from src.models.design_tier import DesignTier
 from src.models.nail_type import NailType
+from src.services.monthly_set_service import get_bookable_model
 
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
@@ -36,11 +37,17 @@ def is_past_same_day_cutoff(target_date: date) -> bool:
 
 async def _resolve_duration(
     db: AsyncSession,
-    nail_type_id: UUID,
+    nail_type_id: UUID | None,
     design_tier_id: UUID | None,
+    monthly_set_model_id: UUID | None = None,
 ) -> int:
     """Total appointment length is the nail type plus the design tier (if any).
-    For nail types like Japanese Manicure, no design tier is needed."""
+    For nail types like Japanese Manicure, no design tier is needed. A monthly set
+    design carries its own duration and must still be bookable."""
+    if monthly_set_model_id is not None:
+        model = await get_bookable_model(db, monthly_set_model_id)
+        return model.duration_minutes
+
     result = await db.execute(select(NailType).where(NailType.id == nail_type_id))
     nail_type = result.scalar_one_or_none()
     if not nail_type or not nail_type.is_active:
@@ -59,11 +66,14 @@ async def _resolve_duration(
 
 async def get_available_slots(
     db: AsyncSession,
-    nail_type_id: UUID,
+    nail_type_id: UUID | None,
     design_tier_id: UUID | None,
     target_date: date,
+    monthly_set_model_id: UUID | None = None,
 ) -> list[datetime]:
-    total_minutes = await _resolve_duration(db, nail_type_id, design_tier_id)
+    total_minutes = await _resolve_duration(
+        db, nail_type_id, design_tier_id, monthly_set_model_id
+    )
     duration = timedelta(minutes=total_minutes)
 
     # No same-day slots once the cutoff has passed.
@@ -151,10 +161,11 @@ async def get_available_slots(
 
 async def get_available_dates(
     db: AsyncSession,
-    nail_type_id: UUID,
+    nail_type_id: UUID | None,
     design_tier_id: UUID | None,
     year: int,
     month: int,
+    monthly_set_model_id: UUID | None = None,
 ) -> list[date]:
     first_day = date(year, month, 1)
     if month == 12:
@@ -168,7 +179,9 @@ async def get_available_dates(
 
     while current <= last_day:
         if current >= today:
-            slots = await get_available_slots(db, nail_type_id, design_tier_id, current)
+            slots = await get_available_slots(
+                db, nail_type_id, design_tier_id, current, monthly_set_model_id
+            )
             if slots:
                 available_dates.append(current)
         current += timedelta(days=1)
